@@ -3,6 +3,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Product extends Model
 {
@@ -16,6 +17,8 @@ class Product extends Model
         'image_path',
         'category',
         'user_id',
+        'is_approved',
+        'is_rejected'
     ];
 
     // If you want to use attribute casting, for example to ensure that the price is always a float
@@ -33,5 +36,10 @@ class Product extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function orderItems(): MorphMany
+    {
+        return $this->morphMany(OrderItem::class, 'item');
     }
 }

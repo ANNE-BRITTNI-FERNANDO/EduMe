@@ -11,7 +11,13 @@ class CartItem extends Model
         'user_id',
         'product_id',
         'bundle_id',
-        'item_type'
+        'item_type',
+        'delivery_type',
+        'delivery_fee'
+    ];
+
+    protected $casts = [
+        'delivery_fee' => 'decimal:2'
     ];
 
     public function user(): BelongsTo
@@ -21,12 +27,12 @@ class CartItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id');
     }
 
     public function bundle(): BelongsTo
     {
-        return $this->belongsTo(Bundle::class);
+        return $this->belongsTo(Bundle::class, 'bundle_id');
     }
 
     public function getNameAttribute()

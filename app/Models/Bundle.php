@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Bundle extends Model
 {
@@ -40,5 +41,10 @@ class Bundle extends Model
     public function getImageUrlAttribute()
     {
         return asset('storage/' . $this->image_path);
+    }
+
+    public function orderItems(): MorphMany
+    {
+        return $this->morphMany(OrderItem::class, 'item');
     }
 }

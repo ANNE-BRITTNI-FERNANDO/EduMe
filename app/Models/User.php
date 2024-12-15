@@ -9,6 +9,10 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\Bundle; // Add the Bundle model to the namespace
 use App\Models\Cart;
 use App\Models\SellerBalance;
+use App\Models\Product; // Add the Product model to the namespace
+use App\Models\PayoutRequest;
+use App\Models\Order;
+use App\Models\OrderItem;
 
 class User extends Authenticatable
 {
@@ -25,6 +29,10 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'phone_number',
+        'street_address',
+        'city',
+        'province',
         'location',
     ];
 
@@ -48,24 +56,21 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
-     * @return array<string, string>
+     * @var array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
 
     /**
      * Get the seller balance associated with the user.
      */
     public function sellerBalance()
     {
-        return $this->hasOne(SellerBalance::class);
+        return $this->hasOne(SellerBalance::class, 'seller_id');
     }
 
     /**
@@ -82,5 +87,34 @@ class User extends Authenticatable
     public function cart()
     {
         return $this->hasOne(Cart::class);
+    }
+
+    /**
+     * Get the products that belong to the user.
+     */
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Get the payout requests that belong to the user.
+     */
+    public function payoutRequests()
+    {
+        return $this->hasMany(PayoutRequest::class, 'seller_id');
+    }
+
+    // Relationship for orders where user is a seller
+    public function sellerOrders()
+    {
+        return $this->hasManyThrough(
+            Order::class,
+            OrderItem::class,
+            'seller_id', // Foreign key on order_items table
+            'id', // Local key on orders table
+            'id', // Local key on users table
+            'order_id' // Foreign key on order_items table
+        );
     }
 }

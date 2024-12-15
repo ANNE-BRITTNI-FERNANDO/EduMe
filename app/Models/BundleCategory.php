@@ -13,6 +13,9 @@ class BundleCategory extends Model
         'bundle_id',
         'category',
         'category_image',
+        'status',
+        'rejection_reason',
+        'rejection_details'
     ];
 
     public function bundle()

@@ -6,17 +6,180 @@ use App\Models\Order;
 use App\Models\Conversation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\PayoutService;
+use App\Models\Warehouse;
 
 class OrderController extends Controller
 {
+    protected $payoutService;
+
+    public function __construct(PayoutService $payoutService)
+    {
+        $this->payoutService = $payoutService;
+    }
+
     public function index()
     {
-        $orders = Order::where('user_id', Auth::id())
-            ->with(['product', 'bundle'])
+        $user = auth()->user();
+        $view_type = request()->query('view', 'buyer');
+        
+        // Query based on view type
+        if ($view_type === 'seller' && $user->role === 'seller') {
+            // Show only orders where user is seller (through order items)
+            $orders = Order::whereHas('items', function($query) use ($user) {
+                $query->where('seller_id', $user->id);
+            })
+            ->with(['user', 'items' => function($query) use ($user) {
+                $query->where('seller_id', $user->id)
+                      ->with('item');
+            }])
             ->latest()
-            ->get();
+            ->paginate(10);
+                          
+            return view('orders.seller.index', compact('orders'));
+        } else {
+            // Show only orders where user is buyer
+            $orders = Order::where('user_id', $user->id)
+                          ->with(['items.seller', 'items.item'])
+                          ->latest()
+                          ->paginate(10);
+                          
+            return view('orders.buyer.index', compact('orders'));
+        }
+    }
 
-        return view('orders.index', compact('orders'));
+    public function show(Order $order)
+    {
+        $user = auth()->user();
+        
+        // Check if user is either buyer or seller of this order through order items
+        if ($order->user_id !== $user->id && 
+            !$order->items()->where('seller_id', $user->id)->exists()) {
+            abort(403);
+        }
+        
+        // Load necessary relationships
+        $order->load([
+            'user',
+            'items.seller',
+            'items.item',
+            'warehouse'
+        ]);
+        
+        // Get the first seller from order items
+        $seller = $order->items->first()->seller;
+        
+        // Get available warehouses for seller
+        $warehouses = Warehouse::where('pickup_available', true)->get();
+        
+        return view('orders.show', compact('order', 'seller', 'warehouses'));
+    }
+
+    public function updateStatus(Request $request, Order $order)
+    {
+        $user = auth()->user();
+        
+        // Check if user is the seller of any items in this order
+        if (!$order->items()->where('seller_id', $user->id)->exists() || 
+            $user->role !== 'seller') {
+            abort(403);
+        }
+
+        $request->validate([
+            'status' => 'required|in:delivered_to_warehouse,dispatched,delivered'
+        ]);
+
+        \DB::transaction(function () use ($request, $order, $user) {
+            $order->update([
+                'delivery_status' => $request->status,
+                'status_updated_at' => now(),
+                'status_updated_by' => $user->id
+            ]);
+
+            // Create delivery tracking entry
+            $order->deliveryTracking()->create([
+                'status' => $request->status,
+                'description' => $this->getStatusDescription($request->status),
+                'location' => $this->getStatusLocation($request->status, $order)
+            ]);
+
+            // If status is delivered_to_warehouse, schedule dispatch after 30 minutes
+            if ($request->status === 'delivered_to_warehouse') {
+                \Illuminate\Support\Facades\Cache::put(
+                    "order_{$order->id}_dispatch_scheduled", 
+                    true, 
+                    now()->addMinutes(30)
+                );
+            }
+
+            // Move pending balance to available when order is completed
+            if ($request->status === 'delivered') {
+                $this->payoutService->movePendingToAvailable($order);
+            }
+        });
+
+        return back()->with('success', 'Order status updated successfully');
+    }
+
+    private function getStatusDescription($status)
+    {
+        $descriptions = [
+            'delivered_to_warehouse' => 'Package has been delivered to the warehouse',
+            'dispatched' => 'Package has been dispatched for delivery',
+            'delivered' => 'Package has been delivered to the customer'
+        ];
+
+        return $descriptions[$status] ?? 'Status updated';
+    }
+
+    private function getStatusLocation($status, $order)
+    {
+        switch ($status) {
+            case 'delivered_to_warehouse':
+                return $order->warehouse ? $order->warehouse->name : 'Warehouse';
+            case 'dispatched':
+                return 'In Transit';
+            case 'delivered':
+                return $order->shipping_address;
+            default:
+                return '';
+        }
+    }
+
+    public function adminIndex()
+    {
+        // Check if user is admin
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        $orders = Order::with(['user', 'items.item', 'sellers'])
+            ->when(request('status'), function($query, $status) {
+                return $query->where('delivery_status', $status);
+            })
+            ->latest()
+            ->paginate(10);
+
+        return view('orders.admin-orders', compact('orders'));
+    }
+
+    public function adminShow(Order $order)
+    {
+        // Check if user is admin
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        // Load all necessary relationships
+        $order->load([
+            'user',
+            'items.seller',
+            'items.item',
+            'deliveryTracking',
+            'warehouse'
+        ]);
+
+        return view('orders.admin-order-show', compact('order'));
     }
 
     public function createBankTransferOrder(Request $request, Conversation $conversation)
@@ -95,7 +258,159 @@ class OrderController extends Controller
         }
 
         return response()->json([
-            'order' => $order->load(['user', 'seller'])
+            'order' => $order->load(['user', 'seller', 'items.item'])
         ]);
+    }
+
+    public function updateOrderStatus(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending,processing,shipped,delivered,cancelled'
+        ]);
+
+        // Check if user has permission to update the order
+        if (Auth::user()->role === 'admin' || 
+            (Auth::user()->role === 'seller' && $order->seller_id === Auth::id())) {
+            
+            $order->update([
+                'delivery_status' => $validated['status']
+            ]);
+
+            // Create delivery tracking entry if status is shipped
+            if ($validated['status'] === 'shipped') {
+                $order->deliveryTracking()->create([
+                    'status' => 'shipped',
+                    'description' => 'Order has been shipped',
+                    'location' => 'Seller\'s location'
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Order status updated successfully');
+        }
+
+        return redirect()->back()->with('error', 'You do not have permission to update this order');
+    }
+
+    public function checkout()
+    {
+        $user = auth()->user();
+        $cartItems = $user->cartItems()->with(['item'])->get();
+
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('cart.index')->with('error', 'Your cart is empty');
+        }
+
+        $total = $cartItems->sum(function($item) {
+            if ($item->item) {
+                return $item->item->price;
+            }
+            return 0;
+        });
+
+        return view('orders.checkout', compact('cartItems', 'total'));
+    }
+
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        $cartItems = \App\Models\CartItem::where('user_id', $user->id)
+            ->with(['item'])
+            ->get();
+
+        if ($cartItems->isEmpty()) {
+            return redirect()->back()->with('error', 'Your cart is empty');
+        }
+
+        \DB::beginTransaction();
+        try {
+            foreach ($cartItems as $cartItem) {
+                $order = null;
+                if ($cartItem->item) {
+                    $order = Order::create([
+                        'user_id' => $user->id,
+                        'seller_id' => $cartItem->item->user_id,
+                        'item_id' => $cartItem->item_id,
+                        'item_type' => $cartItem->item_type,
+                        'amount' => $cartItem->item->price,
+                        'delivery_status' => 'pending',
+                        'payment_status' => 'pending'
+                    ]);
+                }
+
+                // Update seller balance when order is created
+                if ($order) {
+                    $this->payoutService->updateSellerBalances($order);
+                }
+            }
+
+            // Clear the cart after creating orders
+            $cartItems->each->delete();
+
+            \DB::commit();
+            return redirect()->route('orders.index')->with('success', 'Orders placed successfully! Please complete the payment.');
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return redirect()->back()->with('error', 'Failed to place order. Please try again.');
+        }
+    }
+
+    public function updateDeliveryStatus(Order $order, Request $request)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,warehouse_confirmed,dispatched,delivered',
+            'warehouse_id' => 'required_if:status,warehouse_confirmed|exists:warehouses,id'
+        ]);
+
+        $order->delivery_status = $request->status;
+        
+        if ($request->status === 'warehouse_confirmed') {
+            $order->warehouse_id = $request->warehouse_id;
+            $order->warehouse_confirmed_at = now();
+            
+            // Notify seller and buyer
+            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been received at the warehouse.'));
+            $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been confirmed at warehouse.'));
+        }
+        
+        if ($request->status === 'dispatched') {
+            $order->dispatched_at = now();
+            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been dispatched from the warehouse.'));
+        }
+        
+        if ($request->status === 'delivered') {
+            $order->delivered_at = now();
+            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been delivered successfully.'));
+            $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been delivered to customer.'));
+        }
+
+        $order->save();
+
+        return back()->with('success', 'Order status updated successfully.');
+    }
+
+    public function getNearbyWarehouses()
+    {
+        $warehouses = Warehouse::where('pickup_available', true)
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($warehouses);
+    }
+
+    public function confirmDelivery(Order $order)
+    {
+        // Ensure the user is the buyer of this order
+        if ($order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Update the order status to completed
+        $order->update([
+            'status' => 'completed',
+            'delivery_status' => 'completed',
+            'completed_at' => now()
+        ]);
+
+        return back()->with('success', 'Delivery confirmed successfully.');
     }
 }

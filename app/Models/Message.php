@@ -12,11 +12,15 @@ class Message extends Model
         'sender_id',
         'content',
         'read_at',
+        'attachment_path',
+        'attachment_type'
     ];
 
     protected $casts = [
         'read_at' => 'datetime',
     ];
+
+    protected $appends = ['attachment_url'];
 
     public function conversation(): BelongsTo
     {
@@ -33,5 +37,10 @@ class Message extends Model
         if (!$this->read_at) {
             $this->update(['read_at' => now()]);
         }
+    }
+
+    public function getAttachmentUrlAttribute()
+    {
+        return $this->attachment_path ? asset('storage/' . $this->attachment_path) : null;
     }
 }

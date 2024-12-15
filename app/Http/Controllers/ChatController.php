@@ -9,116 +9,73 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
-    public function startConversation(Request $request, $id = null)
+    public function startConversation(Request $request, $id)
     {
         try {
-            // Check if user is authenticated
             if (!Auth::check()) {
                 return redirect()->route('login');
             }
 
-            // Get the route parameters and determine type
-            $routeName = $request->route()->getName();
-            $type = str_contains($routeName, 'bundle') ? 'bundle' : 'product';
-
             \Log::info('Starting conversation', [
-                'route_name' => $routeName,
-                'id' => $id,
-                'type' => $type,
+                'product_id' => $id,
                 'user_id' => Auth::id()
             ]);
 
-            // Find the item based on type
-            if ($type === 'product') {
-                $item = Product::with('user')->findOrFail($id);
-            } else {
-                $item = Bundle::with('user')->findOrFail($id);
-            }
-
-            \Log::info('Item found', [
-                'type' => $type,
-                'item' => $item->toArray(),
-                'user_id' => $item->user_id,
-                'user' => $item->user ? $item->user->toArray() : null
+            $product = Product::with('user')->findOrFail($id);
+            
+            \Log::info('Product found', [
+                'product' => $product->toArray()
             ]);
 
             // Prevent seller from chatting with themselves
-            if ($item->user_id === Auth::id()) {
+            if ($product->user_id === Auth::id()) {
+                \Log::warning('User trying to chat with themselves', [
+                    'user_id' => Auth::id(),
+                    'product_user_id' => $product->user_id
+                ]);
                 return back()->with('error', 'You cannot start a conversation with yourself.');
             }
 
             // Find existing conversation or create new one
-            $conditions = [
-                'seller_id' => $item->user_id,
-                'buyer_id' => Auth::id()
-            ];
+            $conversation = Conversation::where([
+                'seller_id' => $product->user_id,
+                'buyer_id' => Auth::id(),
+                'product_id' => $product->id
+            ])->first();
 
-            if ($type === 'product') {
-                $conditions['product_id'] = $item->id;
-                $conditions['bundle_id'] = null;
-            } else {
-                $conditions['bundle_id'] = $item->id;
-                $conditions['product_id'] = null;
-            }
-
-            \Log::info('Searching for conversation with conditions', [
-                'conditions' => $conditions
+            \Log::info('Existing conversation check', [
+                'found' => $conversation ? true : false,
+                'conversation_id' => $conversation ? $conversation->id : null
             ]);
-
-            $conversation = Conversation::where($conditions)->first();
 
             if (!$conversation) {
-                $data = $conditions;
-                $data['last_message_at'] = now();
-
-                \Log::info('Creating new conversation', [
-                    'data' => $data
+                $conversation = Conversation::create([
+                    'seller_id' => $product->user_id,
+                    'buyer_id' => Auth::id(),
+                    'product_id' => $product->id,
+                    'last_message_at' => now()
                 ]);
-
-                $conversation = Conversation::create($data);
+                \Log::info('Created new conversation', [
+                    'conversation_id' => $conversation->id
+                ]);
             }
 
-            \Log::info('Conversation ready', [
-                'conversation_id' => $conversation->id,
-                'type' => $type,
-                'bundle_id' => $conversation->bundle_id,
-                'product_id' => $conversation->product_id,
-                'redirect_url' => route('chat.show', ['conversation' => $conversation->id])
+            \Log::info('Redirecting to chat', [
+                'route' => 'chat.show',
+                'conversation_id' => $conversation->id
             ]);
 
-            // Load the conversation with its relationships
-            $conversation->load(['messages', 'seller', 'buyer']);
-            if ($type === 'product') {
-                $conversation->load('product');
-            } else {
-                $conversation->load('bundle');
-            }
-
-            // Return the view directly with debug information
-            \Log::info('Rendering chat view', [
-                'conversation_id' => $conversation->id,
-                'type' => $type,
-                'messages_count' => $conversation->messages->count(),
-                'seller' => $conversation->seller->toArray(),
-                'buyer' => $conversation->buyer->toArray(),
-                $type => $conversation->{$type}->toArray()
-            ]);
-
-            return view('chat.show', [
-                'conversation' => $conversation,
-                'messages' => $conversation->messages
-            ])->with('debug', true); // Add debug flag
+            return redirect()->route('chat.show', ['conversation' => $conversation->id]);
         } catch (\Exception $e) {
             \Log::error('Error in startConversation', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'route' => $request->route()->getName(),
-                'parameters' => $request->route()->parameters()
+                'trace' => $e->getTraceAsString()
             ]);
-            return back()->with('error', 'An error occurred while starting the conversation. Please try again.');
+            return back()->with('error', 'An error occurred while starting the conversation.');
         }
     }
 
@@ -133,9 +90,7 @@ class ChatController extends Controller
 
             \Log::info('Starting bundle conversation', [
                 'bundle_id' => $bundle->id,
-                'user_id' => Auth::id(),
-                'request_url' => $request->url(),
-                'request_method' => $request->method()
+                'user_id' => Auth::id()
             ]);
 
             // Prevent seller from chatting with themselves
@@ -151,142 +106,220 @@ class ChatController extends Controller
             $conversation = Conversation::where([
                 'seller_id' => $bundle->user_id,
                 'buyer_id' => Auth::id(),
-                'bundle_id' => $bundle->id,
-                'product_id' => null
+                'bundle_id' => $bundle->id
             ])->first();
 
             if (!$conversation) {
-                \Log::info('Creating new bundle conversation', [
-                    'bundle_id' => $bundle->id,
-                    'seller_id' => $bundle->user_id,
-                    'buyer_id' => Auth::id()
-                ]);
-
                 $conversation = Conversation::create([
                     'seller_id' => $bundle->user_id,
                     'buyer_id' => Auth::id(),
                     'bundle_id' => $bundle->id,
-                    'product_id' => null,
                     'last_message_at' => now()
+                ]);
+
+                \Log::info('Created new bundle conversation', [
+                    'conversation_id' => $conversation->id
                 ]);
             }
 
-            \Log::info('Bundle conversation ready', [
-                'conversation_id' => $conversation->id,
-                'bundle_id' => $conversation->bundle_id,
-                'redirect_url' => route('test.chat.show', ['conversation' => $conversation->id])
-            ]);
-
-            // Use test route for debugging
-            return redirect()->route('test.chat.show', ['conversation' => $conversation->id]);
+            return redirect()->route('chat.show', ['conversation' => $conversation->id]);
 
         } catch (\Exception $e) {
             \Log::error('Error in startBundleConversation', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'bundle_id' => $bundle->id ?? null
+                'trace' => $e->getTraceAsString()
             ]);
-            return back()->with('error', 'An error occurred while starting the conversation. Please try again.');
+            return back()->with('error', 'An error occurred while starting the conversation.');
         }
     }
 
     public function showConversation(Conversation $conversation)
     {
-        \Log::info('Entering showConversation', [
-            'conversation_id' => $conversation->id,
-            'product_id' => $conversation->product_id,
-            'bundle_id' => $conversation->bundle_id,
-            'seller_id' => $conversation->seller_id,
-            'buyer_id' => $conversation->buyer_id,
-            'request_url' => request()->url(),
-            'request_method' => request()->method()
+        if (!$this->isParticipant($conversation)) {
+            return redirect()->route('home')->with('error', 'You are not authorized to view this conversation.');
+        }
+
+        $conversation->load(['messages', 'seller', 'buyer', 'product', 'bundle.categories']);
+
+        return view('chat.show', [
+            'conversation' => $conversation,
+            'messages' => $conversation->messages
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        \Log::info('Message store request', [
+            'has_file' => $request->hasFile('attachment'),
+            'content' => $request->content,
+            'conversation_id' => $request->conversation_id,
+            'all_data' => $request->all(),
+            'files' => $request->allFiles()
         ]);
 
-        // Check if user is participant
-        if (!$this->isParticipant($conversation)) {
-            \Log::warning('Unauthorized conversation access attempt', [
-                'user_id' => Auth::id(),
-                'conversation_id' => $conversation->id
-            ]);
-            return redirect()->route('chat.index')->with('error', 'You do not have access to this conversation.');
-        }
-
         try {
-            // Load messages with sender information
-            $messages = $conversation->messages()
-                ->with('sender')
-                ->orderBy('created_at', 'asc')
-                ->get();
-            
-            // Mark unread messages as read
-            $conversation->messages()
-                ->whereNull('read_at')
-                ->where('sender_id', '!=', Auth::id())
-                ->update(['read_at' => now()]);
+            // Validate the request
+            $rules = [
+                'conversation_id' => 'required|exists:conversations,id',
+            ];
 
-            // Load related models based on conversation type
-            if ($conversation->product_id) {
-                $conversation->load(['product', 'buyer', 'seller']);
+            // Only require content if there's no attachment
+            if (!$request->hasFile('attachment')) {
+                $rules['content'] = 'required|string|max:1000';
             } else {
-                $conversation->load(['bundle', 'buyer', 'seller']);
+                $rules['content'] = 'nullable|string|max:1000';
+                $rules['attachment'] = 'required|file|max:10240|mimes:jpeg,png,gif,pdf,doc,docx';
             }
 
-            \Log::info('Conversation loaded successfully', [
-                'has_product' => $conversation->product_id !== null,
-                'has_bundle' => $conversation->bundle_id !== null,
-                'message_count' => $messages->count(),
-                'view_name' => 'chat.show'
+            $request->validate($rules);
+
+            $conversation = Conversation::findOrFail($request->conversation_id);
+            
+            if ($conversation->buyer_id !== auth()->id() && $conversation->seller_id !== auth()->id()) {
+                throw new \Exception('Unauthorized');
+            }
+
+            $messageData = [
+                'conversation_id' => $conversation->id,
+                'sender_id' => auth()->id(),
+                'content' => $request->content ?? ''
+            ];
+
+            if ($request->hasFile('attachment')) {
+                $file = $request->file('attachment');
+                
+                \Log::info('Processing file upload', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'error' => $file->getError()
+                ]);
+
+                // Ensure the storage directory exists
+                $storage_path = storage_path('app/public/chat-attachments');
+                if (!file_exists($storage_path)) {
+                    mkdir($storage_path, 0755, true);
+                }
+
+                // Store the file
+                $path = $file->store('chat-attachments', 'public');
+                
+                if (!$path) {
+                    throw new \Exception('Failed to store file');
+                }
+
+                $messageData['attachment_path'] = $path;
+                $messageData['attachment_type'] = $file->getMimeType();
+                
+                \Log::info('File uploaded', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'stored_path' => $path,
+                    'full_path' => storage_path('app/public/' . $path)
+                ]);
+            }
+
+            $message = Message::create($messageData);
+            $conversation->update(['last_message_at' => now()]);
+
+            \Log::info('Message created', [
+                'message_id' => $message->id,
+                'has_attachment' => !empty($message->attachment_path),
+                'attachment_path' => $message->attachment_path,
+                'attachment_type' => $message->attachment_type
             ]);
 
-            return view('chat.show', compact('conversation', 'messages'));
+            return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            \Log::error('Error in showConversation', [
+            \Log::error('Error in store method', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'conversation_id' => $conversation->id
+                'trace' => $e->getTraceAsString()
             ]);
-            return redirect()->route('chat.index')->with('error', 'An error occurred while loading the conversation.');
+            
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 422);
         }
+    }
+
+    public function getMessages($conversationId)
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+        
+        if ($conversation->buyer_id !== auth()->id() && $conversation->seller_id !== auth()->id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $messages = $conversation->messages()
+            ->with('sender')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($message) {
+                $message->attachment_url = $message->attachment_path ? asset('storage/' . $message->attachment_path) : null;
+                return $message;
+            });
+
+        return response()->json(['messages' => $messages]);
+    }
+
+    public function markAllRead($conversationId)
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+        
+        if ($conversation->buyer_id !== auth()->id() && $conversation->seller_id !== auth()->id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Mark all messages from the other user as read
+        $conversation->messages()
+            ->where('sender_id', '!=', auth()->id())
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function markAsRead($id)
+    {
+        $message = Message::findOrFail($id);
+        
+        // Only mark as read if the current user is the recipient
+        if (($message->conversation->buyer_id === auth()->id() || $message->conversation->seller_id === auth()->id()) 
+            && $message->sender_id !== auth()->id()
+            && !$message->read_at) {
+            
+            $message->update(['read_at' => now()]);
+            broadcast(new MessageRead($message))->toOthers();
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function sendMessage(Request $request, Conversation $conversation)
     {
-        try {
-            if (!$this->isParticipant($conversation)) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-
-            $validated = $request->validate([
-                'content' => 'required|string|max:1000',
-            ]);
-
-            $message = $conversation->messages()->create([
-                'sender_id' => Auth::id(),
-                'content' => $validated['content'],
-            ]);
-
-            $conversation->update(['last_message_at' => now()]);
-
-            $message->load('sender');
-
-            return response()->json([
-                'success' => true,
-                'message' => $message
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error sending message:', [
-                'error' => $e->getMessage(),
-                'conversation_id' => $conversation->id,
-                'user_id' => Auth::id()
-            ]);
-            
-            return response()->json([
-                'error' => 'Failed to send message. Please try again.'
-            ], 500);
+        if (!$this->isParticipant($conversation)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
+
+        $request->validate([
+            'message' => 'required|string|max:1000'
+        ]);
+
+        $message = new Message([
+            'conversation_id' => $conversation->id,
+            'sender_id' => Auth::id(),
+            'content' => $request->message,
+            'read_at' => null
+        ]);
+
+        $message->save();
+        $conversation->update(['last_message_at' => now()]);
+
+        return response()->json(['success' => true, 'message' => $message]);
     }
 
-    private function isParticipant(Conversation $conversation): bool
+    private function isParticipant(Conversation $conversation)
     {
         return Auth::id() === $conversation->buyer_id || Auth::id() === $conversation->seller_id;
     }
@@ -295,12 +328,10 @@ class ChatController extends Controller
     {
         $conversations = Conversation::where('buyer_id', Auth::id())
             ->orWhere('seller_id', Auth::id())
-            ->with(['product', 'bundle', 'buyer', 'seller', 'messages' => function($query) {
-                $query->latest()->limit(1);
-            }])
+            ->with(['seller', 'buyer', 'product'])
             ->orderBy('last_message_at', 'desc')
             ->get();
 
-        return view('chat.index', compact('conversations'));
+        return view('chat.list', ['conversations' => $conversations]);
     }
 }

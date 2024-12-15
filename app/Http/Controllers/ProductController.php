@@ -17,47 +17,44 @@ class ProductController extends Controller
     // Method to display the product creation form
     public function create()
     {
-        // Define categories for the dropdown
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        // Get approved products for the current seller
+        $approvedProducts = Product::where('user_id', auth()->id())
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-        // Fetch approved products for the specific user
-        $approvedProducts = Product::where('user_id', Auth::id())
-                                   ->where('is_approved', true)
-                                   ->get();
-
-        // Pass categories and approved products to the view
-        return view('seller', compact('categories', 'approvedProducts'));
+        return view('seller', [
+            'approvedProducts' => $approvedProducts
+        ]);
     }
 
     // Store the new product
     public function store(Request $request)
     {
-        // Validate the form data
         $request->validate([
             'product_name' => 'required|string|max:255',
             'description' => 'required|string',
-            'price' => 'required|numeric',
-            'category' => 'required|string',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'price' => 'required|numeric|min:0',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         // Handle image upload
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('product_images', 'public');
-        }
+        $imagePath = $request->file('image')->store('products', 'public');
 
-        // Create new product with user_id field
-        Product::create([
+        // Create product
+        $product = Product::create([
             'product_name' => $request->product_name,
             'description' => $request->description,
             'price' => $request->price,
-            'image_path' => $imagePath ?? null,
-            'category' => $request->category,
-            'status' => 'pending', // Default status before approval
-            'user_id' => Auth::id(), // Set user_id from authenticated user
+            'image_path' => $imagePath,
+            'user_id' => auth()->id(),
+            'category' => 'general', // default category
+            'is_approved' => false,
+            'is_rejected' => false
         ]);
 
-        return redirect()->route('seller')->with('success', 'Product added successfully');
+        return redirect()->back()->with('success', 'Product added successfully! It will be reviewed by an admin.');
     }
 
     // Method to display all products in the admin dashboard
@@ -381,5 +378,11 @@ public function show($id)
         
         // Different regions
         return 3;
+    }
+
+    public function sellerProducts()
+    {
+        $products = Product::where('user_id', auth()->id())->get();
+        return view('seller.products.index', compact('products'));
     }
 }

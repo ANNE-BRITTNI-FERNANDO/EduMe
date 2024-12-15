@@ -20,12 +20,18 @@
 
             <!-- Buttons with Elegant Hover and Transition Effects -->
             <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 md:space-x-8 mb-6 sm:mb-10">
-                <a href="{{ route('seller') }}" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                    I’m a Seller
-                </a>
-                <a href="{{ route('productlisting') }}" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                    I’m a Buyer
-                </a>
+                <form action="{{ route('set.seller') }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        I'm a Seller
+                    </button>
+                </form>
+                <form action="{{ route('set.buyer') }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        I'm a Buyer
+                    </button>
+                </form>
             </div>
 
             <!-- Donate Button with Soft Hover Effect -->
@@ -39,4 +45,3 @@
     </div>
 
 </x-app-layout>
-

@@ -47,6 +47,35 @@
             @endif
         </div>
 
+        <div>
+            <x-input-label for="street_address" :value="__('Street Address')" />
+            <x-text-input id="street_address" name="street_address" type="text" class="mt-1 block w-full" :value="old('street_address', $user->street_address)" autocomplete="street-address" />
+            <x-input-error class="mt-2" :messages="$errors->get('street_address')" />
+        </div>
+
+        <div>
+            <x-input-label for="city" :value="__('City')" />
+            <x-text-input id="city" name="city" type="text" class="mt-1 block w-full" :value="old('city', $user->city)" autocomplete="address-level2" />
+            <x-input-error class="mt-2" :messages="$errors->get('city')" />
+        </div>
+
+        <div>
+            <x-input-label for="province" :value="__('Province')" />
+            <x-text-input id="province" name="province" type="text" class="mt-1 block w-full" :value="old('province', $user->province)" autocomplete="address-level1" />
+            <x-input-error class="mt-2" :messages="$errors->get('province')" />
+        </div>
+
+        <div>
+            <x-input-label for="phone_number" :value="__('Phone Number')" />
+            <x-text-input id="phone_number" name="phone_number" type="text" class="mt-1 block w-full" :value="old('phone_number', $user->phone_number)" autocomplete="tel" />
+            <x-input-error class="mt-2" :messages="$errors->get('phone_number')" />
+        </div>
+
+        <div class="mt-4">
+            <x-input-label for="reminder" :value="__('Reminder')" />
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ __('You can update your address and phone number for a smoother checkout experience.') }}</p>
+        </div>
+
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 

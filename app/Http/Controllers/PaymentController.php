@@ -22,234 +22,312 @@ class PaymentController extends Controller
         Stripe::setApiKey(config('services.stripe.secret'));
     }
 
-    public function showCheckout()
+    public function checkout()
     {
-        $cartItems = CartItem::where('user_id', Auth::id())
-            ->with(['product', 'bundle']) // Eager load relationships
+        $user = auth()->user();
+        $cartItems = CartItem::where('user_id', $user->id)
+            ->with(['product', 'bundle'])
             ->get();
 
-        return view('payment.checkout', [
-            'cartItems' => $cartItems
-        ]);
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
+        }
+
+        $total = $cartItems->sum(function ($item) {
+            return $item->quantity * ($item->product ? $item->product->price : $item->bundle->price) + ($item->delivery_fee ?? 0);
+        });
+
+        return view('payment.checkout', compact('cartItems', 'total'));
     }
 
     public function createPaymentIntent(Request $request)
     {
         try {
-            $cartItems = CartItem::where('user_id', Auth::id())
-                ->with(['product', 'bundle'])
-                ->get();
+            Stripe::setApiKey(config('services.stripe.secret'));
 
-            $total = 0;
-            foreach ($cartItems as $item) {
-                if ($item->item_type === 'product' && $item->product) {
-                    $total += $item->product->price;
-                } elseif ($item->item_type === 'bundle' && $item->bundle) {
-                    $total += $item->bundle->price;
-                }
-            }
-
-            // Convert to cents for Stripe
-            $amount = $total * 100;
-
-            if ($amount <= 0) {
-                return response()->json([
-                    'error' => 'Invalid cart total'
-                ], 400);
-            }
+            $cartItems = CartItem::where('user_id', Auth::id())->get();
+            $totalAmount = $cartItems->sum(function ($item) {
+                return $item->price + $item->delivery_fee;
+            });
 
             $paymentIntent = PaymentIntent::create([
-                'amount' => $amount,
+                'amount' => round($totalAmount * 100), // Convert to cents
                 'currency' => 'usd',
                 'automatic_payment_methods' => [
                     'enabled' => true,
+                ],
+                'metadata' => [
+                    'user_id' => Auth::id(),
                 ],
             ]);
 
             return response()->json([
                 'clientSecret' => $paymentIntent->client_secret,
             ]);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function success()
+    public function redirectToStripe(Request $request)
     {
         try {
-            DB::transaction(function () {
-                // Get the user's cart items with proper eager loading
-                $cartItems = CartItem::where('user_id', Auth::id())
-                    ->with([
-                        'product',
-                        'product.user',
-                        'bundle',
-                        'bundle.user'
-                    ])
-                    ->get();
-
-                Log::info('Processing cart items', ['cart_items' => $cartItems->toArray()]);
-
-                // Process each item and update seller balances
-                foreach ($cartItems as $item) {
-                    if ($item->item_type === 'product' && $item->product && $item->product->user) {
-                        $seller = $item->product->user;
-                        $price = $item->product->price;
-                        
-                        Log::info('Processing product purchase', [
-                            'product_id' => $item->product->id,
-                            'seller_id' => $seller->id,
-                            'price' => $price
-                        ]);
-
-                        // Get or create seller balance for this seller
-                        $sellerBalance = SellerBalance::firstOrCreate(
-                            ['user_id' => $seller->id],
-                            [
-                                'available_balance' => 0,
-                                'pending_balance' => 0,
-                                'total_earned' => 0
-                            ]
-                        );
-
-                        Log::info('Current seller balance', [
-                            'seller_id' => $seller->id,
-                            'balance' => $sellerBalance->toArray()
-                        ]);
-
-                        // Add earnings to seller's balance
-                        DB::beginTransaction();
-                        try {
-                            $sellerBalance->refresh(); // Get fresh data
-                            $oldBalance = $sellerBalance->available_balance;
-                            
-                            $sellerBalance->available_balance += $price;
-                            $sellerBalance->total_earned += $price;
-                            $sellerBalance->save();
-
-                            Log::info('Updated seller balance', [
-                                'seller_id' => $seller->id,
-                                'old_balance' => $oldBalance,
-                                'new_balance' => $sellerBalance->available_balance,
-                                'amount_added' => $price
-                            ]);
-
-                            // Create order record for each item
-                            $order = new Order();
-                            $order->user_id = Auth::id();
-                            $order->seller_id = $seller->id;
-                            $order->item_id = $item->product->id;
-                            $order->item_type = 'product';
-                            $order->total_amount = $price;
-                            $order->payment_method = 'stripe';
-                            $order->payment_status = 'completed';
-                            $order->save();
-
-                            DB::commit();
-                            Log::info('Successfully updated seller balance and created order', [
-                                'seller_id' => $seller->id,
-                                'amount' => $price,
-                                'order_id' => $order->id
-                            ]);
-                        } catch (\Exception $e) {
-                            DB::rollBack();
-                            Log::error('Failed to update seller balance', [
-                                'seller_id' => $seller->id,
-                                'amount' => $price,
-                                'error' => $e->getMessage()
-                            ]);
-                            throw $e;
-                        }
-                    } elseif ($item->item_type === 'bundle' && $item->bundle && $item->bundle->user) {
-                        $seller = $item->bundle->user;
-                        $price = $item->bundle->price;
-
-                        Log::info('Processing bundle purchase', [
-                            'bundle_id' => $item->bundle->id,
-                            'seller_id' => $seller->id,
-                            'price' => $price
-                        ]);
-
-                        // Get or create seller balance for this seller
-                        $sellerBalance = SellerBalance::firstOrCreate(
-                            ['user_id' => $seller->id],
-                            [
-                                'available_balance' => 0,
-                                'pending_balance' => 0,
-                                'total_earned' => 0
-                            ]
-                        );
-
-                        Log::info('Current seller balance', [
-                            'seller_id' => $seller->id,
-                            'balance' => $sellerBalance->toArray()
-                        ]);
-
-                        DB::beginTransaction();
-                        try {
-                            $sellerBalance->refresh(); // Get fresh data
-                            $oldBalance = $sellerBalance->available_balance;
-                            
-                            $sellerBalance->available_balance += $price;
-                            $sellerBalance->total_earned += $price;
-                            $sellerBalance->save();
-
-                            Log::info('Updated seller balance', [
-                                'seller_id' => $seller->id,
-                                'old_balance' => $oldBalance,
-                                'new_balance' => $sellerBalance->available_balance,
-                                'amount_added' => $price
-                            ]);
-
-                            $order = new Order();
-                            $order->user_id = Auth::id();
-                            $order->seller_id = $seller->id;
-                            $order->item_id = $item->bundle->id;
-                            $order->item_type = 'bundle';
-                            $order->total_amount = $price;
-                            $order->payment_method = 'stripe';
-                            $order->payment_status = 'completed';
-                            $order->save();
-
-                            DB::commit();
-                            Log::info('Successfully updated seller balance and created order for bundle', [
-                                'seller_id' => $seller->id,
-                                'amount' => $price,
-                                'order_id' => $order->id
-                            ]);
-                        } catch (\Exception $e) {
-                            DB::rollBack();
-                            Log::error('Failed to update seller balance for bundle', [
-                                'seller_id' => $seller->id,
-                                'amount' => $price,
-                                'error' => $e->getMessage()
-                            ]);
-                            throw $e;
-                        }
-                    } else {
-                        Log::warning('Invalid cart item', [
-                            'item' => $item->toArray()
-                        ]);
-                    }
-                }
-
-                // Clear the user's cart after successful payment
-                CartItem::where('user_id', Auth::id())->delete();
-            });
-
-            return view('payment.success');
-        } catch (\Exception $e) {
-            Log::error('Payment processing failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => Auth::id()
+            Stripe::setApiKey(config('services.stripe.secret'));
+            
+            $amount = $request->query('amount', 0);
+            
+            $session = \Stripe\Checkout\Session::create([
+                'payment_method_types' => ['card'],
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => 'usd',
+                        'product_data' => [
+                            'name' => 'Cart Payment',
+                        ],
+                        'unit_amount' => round($amount * 100),
+                    ],
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'success_url' => route('payment.success'),
+                'cancel_url' => route('payment.cancel'),
             ]);
-            return redirect()->route('cart.index')->with('error', 'Payment processing failed. Please try again.');
+
+            return redirect($session->url);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function process(Request $request)
+    {
+        $request->validate([
+            'delivery_address' => 'required|string',
+            'phone_number' => 'required|string',
+        ]);
+
+        try {
+            return $this->processCheckout($request);
+        } catch (\Exception $e) {
+            Log::error('Checkout process failed: ' . $e->getMessage());
+            return back()->with('error', 'There was an error processing your payment. Please try again.');
+        }
+    }
+
+    public function processCheckout(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $cartItems = CartItem::where('user_id', $user->id)
+                ->with(['product', 'bundle'])
+                ->get();
+
+            if ($cartItems->isEmpty()) {
+                return back()->with('error', 'Your cart is empty.');
+            }
+
+            // Validate the request
+            $request->validate([
+                'delivery_address' => 'required|string',
+                'phone' => ['required', 'regex:/^(?:\+94|0)[0-9]{9}$/'],
+                'delivery_types' => 'required|array'
+            ]);
+
+            // Calculate total amount including delivery fees
+            $subtotal = 0;
+            $totalDeliveryFee = 0;
+
+            foreach ($cartItems as $item) {
+                // Get item price
+                $itemPrice = $item->item_type === 'product' 
+                    ? $item->product->price 
+                    : $item->bundle->price;
+                
+                $subtotal += $itemPrice;
+
+                // Calculate delivery fee based on type
+                $baseFee = $item->delivery_fee;
+                $deliveryType = $request->delivery_types[$item->id] ?? 'standard';
+                $deliveryFee = $deliveryType === 'express' ? $baseFee * 1.5 : $baseFee;
+                
+                $totalDeliveryFee += $deliveryFee;
+
+                // Update cart item with delivery info
+                $item->update([
+                    'delivery_type' => $deliveryType,
+                    'delivery_fee' => $deliveryFee,
+                    'delivery_address' => $request->delivery_address,
+                    'phone' => $request->phone
+                ]);
+            }
+
+            $totalAmount = $subtotal + $totalDeliveryFee;
+
+            // Create Stripe Checkout Session
+            $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+            
+            $lineItems = [];
+            $orderItems = [];
+            
+            foreach ($cartItems as $item) {
+                $itemName = $item->item_type === 'product' 
+                    ? $item->product->name 
+                    : $item->bundle->name;
+                
+                $itemPrice = $item->item_type === 'product' 
+                    ? $item->product->price 
+                    : $item->bundle->price;
+                
+                $sellerId = $item->item_type === 'product' 
+                    ? $item->product->user_id 
+                    : $item->bundle->user_id;
+
+                // Add item price
+                $lineItems[] = [
+                    'price_data' => [
+                        'currency' => 'lkr',
+                        'product_data' => [
+                            'name' => $itemName,
+                        ],
+                        'unit_amount' => round($itemPrice * 100), // Convert to cents
+                    ],
+                    'quantity' => 1,
+                ];
+
+                // Add delivery fee as separate line item
+                $lineItems[] = [
+                    'price_data' => [
+                        'currency' => 'lkr',
+                        'product_data' => [
+                            'name' => "Delivery Fee for $itemName (" . ucfirst($item->delivery_type) . ")",
+                        ],
+                        'unit_amount' => round($item->delivery_fee * 100), // Convert to cents
+                    ],
+                    'quantity' => 1,
+                ];
+
+                $orderItems[] = [
+                    'item_id' => $item->item_type === 'product' ? $item->product_id : $item->bundle_id,
+                    'item_type' => $item->item_type,
+                    'price' => $itemPrice,
+                    'delivery_fee' => $item->delivery_fee,
+                    'delivery_type' => $item->delivery_type,
+                    'seller_id' => $sellerId,
+                ];
+            }
+
+            $session = $stripe->checkout->sessions->create([
+                'payment_method_types' => ['card'],
+                'line_items' => $lineItems,
+                'mode' => 'payment',
+                'success_url' => route('payment.success') . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('payment.cancel'),
+                'metadata' => [
+                    'user_id' => $user->id,
+                    'delivery_address' => $request->delivery_address,
+                    'phone' => $request->phone,
+                    'order_items' => json_encode($orderItems),
+                ],
+                'customer_email' => $user->email,
+            ]);
+
+            return redirect($session->url);
+        } catch (\Exception $e) {
+            \Log::error('Checkout error: ' . $e->getMessage());
+            return back()->with('error', 'An error occurred during checkout. Please try again.');
+        }
+    }
+
+    public function success(Request $request)
+    {
+        try {
+            if (!$request->get('session_id')) {
+                return redirect()->route('cart.index');
+            }
+
+            $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+            $session = $stripe->checkout->sessions->retrieve($request->get('session_id'));
+            
+            if ($session->payment_status === 'paid') {
+                $metadata = $session->metadata;
+                $orderItems = json_decode($metadata->order_items, true);
+                
+                DB::beginTransaction();
+                
+                try {
+                    // Create orders for each seller
+                    $sellerOrders = [];
+                    foreach ($orderItems as $item) {
+                        $sellerId = $item['seller_id'];
+                        if (!isset($sellerOrders[$sellerId])) {
+                            $sellerOrders[$sellerId] = Order::create([
+                                'user_id' => auth()->id(),
+                                'seller_id' => $sellerId,
+                                'total_amount' => 0, // Will be updated
+                                'delivery_address' => $metadata->delivery_address,
+                                'phone' => $metadata->phone,
+                                'status' => 'pending',
+                                'payment_method' => 'stripe',
+                                'payment_status' => 'paid',
+                                'payment_id' => $session->payment_intent,
+                            ]);
+                        }
+
+                        // Create order item
+                        $orderItem = $sellerOrders[$sellerId]->items()->create([
+                            'item_id' => $item['item_id'],
+                            'item_type' => $item['item_type'],
+                            'price' => $item['price'],
+                            'delivery_fee' => $item['delivery_fee'],
+                            'delivery_type' => $item['delivery_type'],
+                        ]);
+
+                        // Update order total
+                        $sellerOrders[$sellerId]->increment('total_amount', $item['price'] + $item['delivery_fee']);
+
+                        // Create delivery tracking
+                        // DeliveryTracking::create([
+                        //     'order_id' => $sellerOrders[$sellerId]->id,
+                        //     'order_item_id' => $orderItem->id,
+                        //     'status' => 'pending',
+                        //     'tracking_number' => 'TRK' . strtoupper(uniqid()),
+                        //     'estimated_delivery' => now()->addDays($item['delivery_type'] === 'express' ? 1 : 3),
+                        // ]);
+
+                        // Update seller balance
+                        $sellerBalance = SellerBalance::firstOrCreate(
+                            ['user_id' => $sellerId],
+                            ['available_balance' => 0, 'pending_balance' => 0]
+                        );
+                        
+                        $sellerBalance->increment('pending_balance', $item['price']);
+                    }
+
+                    // Clear the cart
+                    CartItem::where('user_id', auth()->id())->delete();
+
+                    DB::commit();
+
+                    return redirect()->route('orders.index')
+                        ->with('success', 'Payment successful! Your order has been placed.');
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
+            }
+
+            return redirect()->route('cart.index')
+                ->with('error', 'Payment was not completed.');
+        } catch (\Exception $e) {
+            \Log::error('Payment success error: ' . $e->getMessage());
+            return redirect()->route('cart.index')
+                ->with('error', 'Error processing payment: ' . $e->getMessage());
         }
     }
 
     public function cancel()
     {
-        return view('payment.cancel');
+        return redirect()->route('cart.index')
+            ->with('error', 'Payment was cancelled.');
     }
 }

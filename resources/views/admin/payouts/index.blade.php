@@ -78,6 +78,16 @@
                             </button>
                         </li>
                         <li class="mr-1">
+                            <button class="px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 bg-transparent rounded-t-lg hover:text-gray-900 dark:hover:text-white border-b-2 border-transparent hover:border-gray-300" id="approved-tab" data-tab="approved">
+                                Approved Payouts
+                            </button>
+                        </li>
+                        <li class="mr-1">
+                            <button class="px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 bg-transparent rounded-t-lg hover:text-gray-900 dark:hover:text-white border-b-2 border-transparent hover:border-gray-300" id="completed-tab" data-tab="completed">
+                                Completed Payouts
+                            </button>
+                        </li>
+                        <li class="mr-1">
                             <button class="px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 bg-transparent rounded-t-lg hover:text-gray-900 dark:hover:text-white border-b-2 border-transparent hover:border-gray-300" id="rejected-tab" data-tab="rejected">
                                 Rejected Payouts
                             </button>
@@ -114,7 +124,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->created_at->format('M d, Y') }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <form action="{{ route('admin.payouts.approve', $payout) }}" method="POST" class="inline">
+                                            <form action="{{ route('admin.payouts.approve', $payout->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 <button type="submit" class="text-green-600 hover:text-green-900 mr-3">Approve</button>
                                             </form>
@@ -128,6 +138,131 @@
                             </table>
                             <div class="mt-4">
                                 {{ $pendingPayouts->links() }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approved Payouts Table -->
+                    <div id="approved-content" class="tab-content hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Request ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Bank Details</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Approved At</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($approvedPayouts as $payout)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">#{{ $payout->id }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                            <div>{{ $payout->user->name }}</div>
+                                            <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
+                                            <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
+                                                View Details
+                                            </button>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->processed_at?->format('M d, Y H:i A') }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            @if($payout->status === 'approved')
+                                                <form action="{{ route('admin.payouts.upload-receipt', $payout->id) }}" method="POST" enctype="multipart/form-data" class="mt-2">
+                                                    @csrf
+                                                    <div class="space-y-3">
+                                                        <div>
+                                                            <label for="transaction_id" class="block text-sm font-medium text-gray-700">Transaction ID</label>
+                                                            <input type="text" name="transaction_id" id="transaction_id" required
+                                                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                                        </div>
+                                                        <div>
+                                                            <label for="receipt" class="block text-sm font-medium text-gray-700">Upload Receipt</label>
+                                                            <input type="file" name="receipt" id="receipt" required accept=".pdf,.jpg,.jpeg,.png"
+                                                                   class="mt-1 block w-full text-sm text-gray-500
+                                                                          file:mr-4 file:py-2 file:px-4
+                                                                          file:rounded-md file:border-0
+                                                                          file:text-sm file:font-semibold
+                                                                          file:bg-indigo-50 file:text-indigo-700
+                                                                          hover:file:bg-indigo-100">
+                                                            <p class="mt-1 text-sm text-gray-500">Upload PDF, JPG, JPEG, or PNG (max 2MB)</p>
+                                                        </div>
+                                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                                            Upload Receipt & Complete Payout
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            @else
+                                                <form action="{{ route('admin.payouts.complete', $payout->id) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="text-green-600 hover:text-green-900 mr-3">Mark as Completed</button>
+                                                </form>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            <div class="mt-4">
+                                {{ $approvedPayouts->appends(['approved_page' => $approvedPayouts->currentPage()])->links() }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Completed Payouts Table -->
+                    <div id="completed-content" class="tab-content hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Request ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Bank Details</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Transaction ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Completed At</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Receipt</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($completedPayouts as $payout)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">#{{ $payout->id }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                            <div>{{ $payout->user->name }}</div>
+                                            <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
+                                            <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
+                                                View Details
+                                            </button>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->transaction_id }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->completed_at?->format('M d, Y H:i A') }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                            @if($payout->receipt_path)
+                                                <a href="{{ Storage::url($payout->receipt_path) }}" 
+                                                   target="_blank"
+                                                   class="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                                    </svg>
+                                                    View Receipt
+                                                </a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            <div class="mt-4">
+                                {{ $completedPayouts->appends(['completed_page' => $completedPayouts->currentPage()])->links() }}
                             </div>
                         </div>
                     </div>

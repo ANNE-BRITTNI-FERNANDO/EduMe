@@ -1,77 +1,103 @@
-@extends('layouts.app')
+<x-order-layout>
+    <x-slot name="header">
+        {{ $view_type === 'seller' ? 'Sales Management' : 'My Orders' }}
+    </x-slot>
 
-@section('content')
-<div class="py-12">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-            <div class="p-6 text-gray-900">
-                <h2 class="text-2xl font-semibold mb-6">Your Orders</h2>
-
-                @if(session('success'))
-                    <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                        {{ session('success') }}
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
-                @if($orders->isEmpty())
-                    <div class="text-center py-8">
-                        <p class="text-gray-500">No orders found.</p>
-                    </div>
-                @else
-                    <div class="space-y-6">
-                        @foreach($orders as $order)
-                            <div class="border rounded-lg p-6 hover:shadow-md transition-shadow">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <h3 class="text-lg font-semibold">
-                                            {{ $order->item_type === 'product' ? $order->product->name : $order->bundle->name }}
-                                        </h3>
-                                        <p class="text-gray-600 mt-1">
-                                            Order #{{ $order->id }}
-                                        </p>
-                                        <div class="mt-2 space-y-1">
-                                            <p class="text-sm text-gray-600">
-                                                Type: {{ ucfirst($order->item_type) }}
-                                            </p>
-                                            <p class="text-sm text-gray-600">
-                                                Payment Method: {{ ucfirst(str_replace('_', ' ', $order->payment_method)) }}
-                                            </p>
-                                            <p class="text-sm text-gray-600">
-                                                Status: 
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                    {{ $order->payment_status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                                       ($order->payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                                    {{ ucfirst($order->payment_status) }}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-lg font-bold text-indigo-600">
-                                            ${{ number_format($order->amount, 2) }}
-                                        </p>
-                                        @if($order->payment_method === 'bank_transfer' && $order->payment_status === 'pending')
-                                            <div class="mt-2 text-sm text-gray-600">
-                                                <p class="font-semibold">Bank Details:</p>
-                                                <p>Bank: Example Bank</p>
-                                                <p>Account: 1234-5678-9012</p>
-                                                <p>Reference: ORD-{{ $order->id }}</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
+    <x-slot name="headerActions">
+        @if(auth()->user()->role === 'seller')
+        <div class="flex space-x-4">
+            <a href="{{ route('orders.index', ['view' => 'buyer']) }}" 
+               class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 rounded-md font-semibold text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-25 transition ease-in-out duration-150 {{ request()->query('view') !== 'seller' ? 'bg-gray-50' : '' }}">
+                My Orders
+            </a>
+            <a href="{{ route('orders.index', ['view' => 'seller']) }}"
+               class="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 rounded-md font-semibold text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-25 transition ease-in-out duration-150 {{ request()->query('view') === 'seller' ? 'bg-gray-50' : '' }}">
+                Sales
+            </a>
         </div>
+        @endif
+    </x-slot>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Order ID
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {{ $view_type === 'seller' ? 'Buyer' : 'Seller' }}
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Amount
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Date
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200 dark:divide-gray-600">
+                @forelse($orders as $order)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                        #{{ $order->id }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ $view_type === 'seller' ? $order->user->name : $order->seller->name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        ${{ number_format($order->total_amount, 2) }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            @if($order->status === 'confirmed') bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900
+                            @elseif($order->status === 'cancelled') bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900
+                            @else bg-yellow-100 text-yellow-800 dark:bg-yellow-200 dark:text-yellow-900
+                            @endif">
+                            {{ ucfirst($order->status) }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ $order->created_at->format('M d, Y') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{{ route('orders.show', $order) }}" 
+                           class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">View Details</a>
+                        
+                        @if($view_type === 'seller' && $order->status === 'processing')
+                        <form action="{{ route('orders.update-status', $order) }}" method="POST" class="inline ml-4">
+                            @csrf
+                            @method('PATCH')
+                            <select name="status" onchange="this.form.submit()" 
+                                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md dark:bg-gray-700 dark:text-gray-300">
+                                <option value="pending" {{ $order->status === 'pending' ? 'selected' : '' }}>Pending</option>
+                                <option value="processing" {{ $order->status === 'processing' ? 'selected' : '' }}>Processing</option>
+                                <option value="shipped" {{ $order->status === 'shipped' ? 'selected' : '' }}>Shipped</option>
+                                <option value="delivered" {{ $order->status === 'delivered' ? 'selected' : '' }}>Delivered</option>
+                                <option value="cancelled" {{ $order->status === 'cancelled' ? 'selected' : '' }}>Cancel</option>
+                            </select>
+                        </form>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
+                        No orders found.
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-</div>
-@endsection
+
+    <div class="mt-4">
+        {{ $orders->links() }}
+    </div>
+</x-order-layout>

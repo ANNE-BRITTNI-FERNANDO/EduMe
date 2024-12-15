@@ -26,7 +26,14 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->user()->fill([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'province' => $request->province,
+            'location' => $request->location,
+        ]);
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
@@ -56,5 +63,32 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    /**
+     * Update delivery details
+     */
+    public function updateDelivery(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            
+            $user->update([
+                'address' => $request->address,
+                'phone' => $request->phone,
+                'province' => $request->province,
+                'location' => $request->location
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Delivery details updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update delivery details: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

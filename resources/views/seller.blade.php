@@ -18,25 +18,34 @@
                 @endif
 
                 <!-- Product Form -->
-                <form action="{{ route('seller.store') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('seller.products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
 
                     <!-- Product Name -->
                     <div class="mb-4">
                         <label for="product_name" class="block text-gray-300 font-semibold text-lg mb-2">Product Name</label>
-                        <input type="text" name="product_name" id="product_name" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required placeholder="Enter product name">
+                        <input type="text" name="product_name" id="product_name" value="{{ old('product_name') }}" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        @error('product_name')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Product Description -->
                     <div class="mb-4">
                         <label for="description" class="block text-gray-300 font-semibold text-lg mb-2">Description</label>
-                        <textarea name="description" id="description" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required placeholder="Enter product description"></textarea>
+                        <textarea name="description" id="description" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>{{ old('description') }}</textarea>
+                        @error('description')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Product Price -->
                     <div class="mb-4">
-                        <label for="price" class="block text-gray-300 font-semibold text-lg mb-2">Price ($)</label>
-                        <input type="number" name="price" id="price" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" step="0.01" required placeholder="Enter price">
+                        <label for="price" class="block text-gray-300 font-semibold text-lg mb-2">Price (LKR)</label>
+                        <input type="number" name="price" id="price" value="{{ old('price') }}" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" step="0.01" required>
+                        @error('price')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Category -->
@@ -51,70 +60,74 @@
                         </select>
                     </div>
 
-                    <!-- Product Images -->
-<div class="mb-4">
-    <label for="image" class="block text-gray-300 font-semibold text-lg mb-2">Product Image</label>
-    <input type="file" name="image" id="image" class="w-full text-gray-200 bg-gray-700 p-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
-    @error('image')
-        <span class="text-red-500 text-sm mt-2">{{ $message }}</span>
-    @enderror
-</div>
-
+                    <!-- Product Image -->
+                    <div class="mb-4">
+                        <label for="image" class="block text-gray-300 font-semibold text-lg mb-2">Product Image</label>
+                        <input type="file" name="image" id="image" class="w-full p-3 rounded-lg text-gray-200 bg-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        @error('image')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
 
                     <!-- Hidden seller_id -->
                     <input type="hidden" name="seller_id" value="{{ auth()->user()->id }}">
 
-                    <!-- Submit Button -->
-                    <button type="submit" class="w-full bg-gray-800 text-white py-3 rounded-full mt-6 border border-white hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105">
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
                         Add Product
                     </button>
                 </form>
             </div>
 
             <!-- Right Side: Question and Product Table -->
-                     <!-- Right Side: Question and Product Table -->
-                <div class="w-full lg:w-1/2">
-                    <div class="text-center mb-4 bg-gradient-to-t from-gray-700 via-gray-800 to-gray-900 p-6 rounded-lg">
-                        <h3 class="text-2xl font-semibold text-white mb-2">Do you have more products to add?</h3>
-                        <p class="text-lg text-white">If you have more products to add, feel free to continue adding more items.</p>
-                        <a href="{{ route('sell-bundle') }}" class="mt-4 px-6 py-2 bg-gray-800 text-white hover:bg-indigo-700 rounded-full opacity-60">
-    Sell as Bundle
-</a>
-                    </div>
-                <!-- Product Table -->
-                @if($approvedProducts->isNotEmpty())
-                    <table class="min-w-full bg-white shadow-lg rounded-lg overflow-hidden">
-                        <thead class="bg-gradient-to-b from-gray-800 via-gray-900 to-gray-800 text-white">
-                            <tr>
-                                <th class="px-6 py-4 text-left">Product Name</th>
-                                <th class="px-6 py-4 text-left">Category</th>
-                                <th class="px-6 py-4 text-left">Price</th>
-                                <th class="px-6 py-4 text-left">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($approvedProducts as $product)
-                                <tr class="border-b hover:bg-indigo-50 transition ease-in-out">
-                                    <td class="px-6 py-4">{{ $product->product_name }}</td>
-                                    <td class="px-6 py-4">{{ $product->category }}</td>
-                                    <td class="px-6 py-4">${{ $product->price }}</td>
-                                    <td class="px-6 py-4">
-                                        <a href="{{ route('product.edit', $product->id) }}" class="bg-blue-500 text-white px-4 py-2 rounded-full inline-block hover:bg-blue-600 transition duration-300 transform hover:scale-105">Edit</a>
-                                        <form action="{{ route('product.destroy', $product->id) }}" method="POST" class="inline-block ml-2">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-full inline-block hover:bg-red-600 transition duration-300 transform hover:scale-105">Delete</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    <p class="text-center mt-4 text-white">No approved products available.</p>
-                @endif
+            <div class="w-full lg:w-1/2">
+                <div class="text-center mb-4 bg-gradient-to-t from-gray-700 via-gray-800 to-gray-900 p-6 rounded-lg">
+                    <h3 class="text-2xl font-semibold text-white mb-2">Do you have more products to add?</h3>
+                    <p class="text-lg text-white">If you have more products to add, feel free to continue adding more items.</p>
+                    <a href="{{ route('sell-bundle') }}" class="mt-4 px-6 py-2 bg-gray-800 text-white hover:bg-indigo-700 rounded-full opacity-60">
+                        Sell as Bundle
+                    </a>
+                </div>
+                <!-- Product List -->
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold text-gray-300 mb-4">Your Approved Products</h3>
+                    @if($approvedProducts->isEmpty())
+                        <p class="text-gray-400">No approved products yet.</p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-gray-700 rounded-lg overflow-hidden">
+                                <thead class="bg-gray-800">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-600">
+                                    @foreach($approvedProducts as $product)
+                                        <tr class="hover:bg-gray-600 transition-colors">
+                                            <td class="px-6 py-4 whitespace-nowrap text-gray-300">
+                                                {{ $product->name }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-gray-300">
+                                                LKR {{ number_format($product->price, 2) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    Approved
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <a href="#" class="text-indigo-400 hover:text-indigo-300">Edit</a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
 </x-app-layout>
-

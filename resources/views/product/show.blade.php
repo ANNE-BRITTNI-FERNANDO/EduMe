@@ -40,14 +40,18 @@
                     @auth
                         @if(auth()->id() !== $product->user_id)
                             <div class="space-x-4">
-                                <a href="{{ route('chat.start.product', ['id' => $product->id]) }}" 
-                                   class="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 inline-block">
-                                    Chat with Seller
-                                </a>
-                                <button onclick="window.addToCart('product', {{ $product->id }})"
-                                        class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 inline-block">
+                                <a href="{{ route('cart.add.product', ['id' => $product->id]) }}" 
+                                   class="bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600 transition-colors duration-200 inline-flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
                                     Add to Cart
-                                </button>
+                                </a>
+                                <form action="{{ route('chat-with-seller', ['id' => $product->id]) }}" method="GET" class="inline">
+                                    <button type="submit" class="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600">
+                                        Chat with Seller
+                                    </button>
+                                </form>
                             </div>
                         @endif
                     @else
