@@ -77,73 +77,26 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, Order $order)
     {
-        $user = auth()->user();
-        
-        // Check if user is the seller of any items in this order
-        if (!$order->items()->where('seller_id', $user->id)->exists() || 
-            $user->role !== 'seller') {
-            abort(403);
-        }
-
         $request->validate([
-            'status' => 'required|in:delivered_to_warehouse,dispatched,delivered'
+            'status' => 'required|in:pending,processing,delivered_to_warehouse,dispatched,completed,cancelled'
         ]);
 
-        \DB::transaction(function () use ($request, $order, $user) {
-            $order->update([
-                'delivery_status' => $request->status,
-                'status_updated_at' => now(),
-                'status_updated_by' => $user->id
-            ]);
-
-            // Create delivery tracking entry
-            $order->deliveryTracking()->create([
-                'status' => $request->status,
-                'description' => $this->getStatusDescription($request->status),
-                'location' => $this->getStatusLocation($request->status, $order)
-            ]);
-
-            // If status is delivered_to_warehouse, schedule dispatch after 30 minutes
-            if ($request->status === 'delivered_to_warehouse') {
-                \Illuminate\Support\Facades\Cache::put(
-                    "order_{$order->id}_dispatch_scheduled", 
-                    true, 
-                    now()->addMinutes(30)
-                );
+        $order->delivery_status = $request->status;
+        
+        // If order is completed, mark all products as sold
+        if ($request->status === 'completed') {
+            foreach ($order->items as $item) {
+                $product = $item->item;
+                if ($product) {
+                    $product->is_sold = true;
+                    $product->save();
+                }
             }
-
-            // Move pending balance to available when order is completed
-            if ($request->status === 'delivered') {
-                $this->payoutService->movePendingToAvailable($order);
-            }
-        });
+        }
+        
+        $order->save();
 
         return back()->with('success', 'Order status updated successfully');
-    }
-
-    private function getStatusDescription($status)
-    {
-        $descriptions = [
-            'delivered_to_warehouse' => 'Package has been delivered to the warehouse',
-            'dispatched' => 'Package has been dispatched for delivery',
-            'delivered' => 'Package has been delivered to the customer'
-        ];
-
-        return $descriptions[$status] ?? 'Status updated';
-    }
-
-    private function getStatusLocation($status, $order)
-    {
-        switch ($status) {
-            case 'delivered_to_warehouse':
-                return $order->warehouse ? $order->warehouse->name : 'Warehouse';
-            case 'dispatched':
-                return 'In Transit';
-            case 'delivered':
-                return $order->shipping_address;
-            default:
-                return '';
-        }
     }
 
     public function adminIndex()
@@ -232,6 +185,14 @@ class OrderController extends Controller
             'confirmed_at' => now()
         ]);
 
+        // Mark products as sold
+        foreach ($order->items as $item) {
+            if ($item->item_type === 'product') {
+                $product = $item->item;
+                $product->update(['is_sold' => true]);
+            }
+        }
+
         // Send a system message in the conversation
         if ($order->conversation) {
             $order->conversation->messages()->create([
@@ -275,6 +236,16 @@ class OrderController extends Controller
             $order->update([
                 'delivery_status' => $validated['status']
             ]);
+
+            // Mark products as sold when order is confirmed/shipped/delivered
+            if (in_array($validated['status'], ['processing', 'shipped', 'delivered'])) {
+                foreach ($order->items as $item) {
+                    if ($item->item_type === 'product') {
+                        $product = $item->item;
+                        $product->update(['is_sold' => true]);
+                    }
+                }
+            }
 
             // Create delivery tracking entry if status is shipped
             if ($validated['status'] === 'shipped') {

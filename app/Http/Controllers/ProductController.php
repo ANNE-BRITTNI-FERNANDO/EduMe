@@ -4,19 +4,75 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Models\Order;
 
 class ProductController extends Controller
 {
-    // Method to display all products for admin
+    // Method to display all products for admin or seller
     public function index()
     {
-        $products = Product::orderBy('created_at', 'desc')->get();
-        return view('admin.dashboard', compact('products'));
+        $user = auth()->user();
+
+        // Get products based on user role
+        $products = Product::query();
+        
+        if ($user->role === 'seller') {
+            $products->where('user_id', $user->id);
+            $view = 'seller.products.index';
+        } else {
+            $products->where('is_approved', false)
+                    ->where('is_rejected', false);
+            $view = 'admin.dashboard';
+        }
+        
+        $products = $products->orderBy('created_at', 'desc')->get();
+
+        // Get order statistics
+        $totalOrders = Order::when($user->role === 'seller', function($query) use ($user) {
+            $query->whereHas('items', function($q) use ($user) {
+                $q->where('seller_id', $user->id);
+            });
+        })->count();
+
+        $pendingOrders = Order::when($user->role === 'seller', function($query) use ($user) {
+            $query->whereHas('items', function($q) use ($user) {
+                $q->where('seller_id', $user->id);
+            });
+        })->where('delivery_status', 'pending')->count();
+
+        $completedOrders = Order::when($user->role === 'seller', function($query) use ($user) {
+            $query->whereHas('items', function($q) use ($user) {
+                $q->where('seller_id', $user->id);
+            });
+        })->where('delivery_status', 'delivered')->count();
+
+        $totalRevenue = Order::when($user->role === 'seller', function($query) use ($user) {
+            $query->whereHas('items', function($q) use ($user) {
+                $q->where('seller_id', $user->id);
+            });
+        })->where('delivery_status', 'delivered')
+          ->where('payment_status', 'paid')
+          ->sum('total_amount');
+
+        // Get recent orders for admin dashboard
+        $recentOrders = Order::when($user->role === 'seller', function($query) use ($user) {
+            $query->whereHas('items', function($q) use ($user) {
+                $q->where('seller_id', $user->id);
+            });
+        })->with(['items.item', 'user'])
+          ->latest()
+          ->take(5)
+          ->get();
+
+        return view($view, compact('products', 'totalOrders', 'pendingOrders', 'completedOrders', 'totalRevenue', 'recentOrders'));
     }
 
     // Method to display the product creation form
     public function create()
     {
+        // Define categories for the dropdown
+        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        
         // Get approved products for the current seller
         $approvedProducts = Product::where('user_id', auth()->id())
             ->where('is_approved', true)
@@ -24,9 +80,7 @@ class ProductController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('seller', [
-            'approvedProducts' => $approvedProducts
-        ]);
+        return view('seller.products.create', compact('categories', 'approvedProducts'));
     }
 
     // Store the new product
@@ -36,90 +90,123 @@ class ProductController extends Controller
             'product_name' => 'required|string|max:255',
             'description' => 'required|string',
             'price' => 'required|numeric|min:0',
+            'category' => 'required|string|in:Electronics,Books,Clothing,Furniture,Toys',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
-        // Handle image upload
-        $imagePath = $request->file('image')->store('products', 'public');
+        try {
+            // Handle image upload
+            $imagePath = $request->file('image')->store('products', 'public');
 
-        // Create product
-        $product = Product::create([
-            'product_name' => $request->product_name,
-            'description' => $request->description,
-            'price' => $request->price,
-            'image_path' => $imagePath,
-            'user_id' => auth()->id(),
-            'category' => 'general', // default category
-            'is_approved' => false,
-            'is_rejected' => false
-        ]);
+            // Create product
+            $product = Product::create([
+                'product_name' => $request->product_name,
+                'description' => $request->description,
+                'price' => $request->price,
+                'image_path' => $imagePath,
+                'user_id' => auth()->id(),
+                'category' => $request->category,
+                'is_approved' => false,
+                'is_rejected' => false
+            ]);
 
-        return redirect()->back()->with('success', 'Product added successfully! It will be reviewed by an admin.');
+            // Redirect back to create page with success message
+            return redirect()->route('seller.products.create')
+                           ->with('success', 'Product has been submitted for approval. You will be notified once it is reviewed.');
+        } catch (\Exception $e) {
+            \Log::error('Product creation failed: ' . $e->getMessage());
+            return redirect()->back()
+                           ->withInput()
+                           ->with('error', 'Failed to create product. Please try again.');
+        }
     }
 
     // Method to display all products in the admin dashboard
     public function adminIndex()
     {
-        // Fetch all products from the database
-        $products = Product::all();
+        // Fetch only pending products (not approved and not rejected)
+        $products = Product::where('is_approved', false)
+                          ->where('is_rejected', false)
+                          ->orderBy('created_at', 'desc')
+                          ->get();
 
-        // Return the admin dashboard view with the products data
-        return view('admin.dashboard', compact('products'));
+        // Get statistics for the dashboard
+        $totalOrders = Order::count();
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $completedOrders = Order::where('status', 'completed')->count();
+        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+
+        return view('admin.dashboard', compact('products', 'totalOrders', 'pendingOrders', 'completedOrders', 'totalRevenue'));
     }
 
     // Approve a product
     public function approve($id)
     {
-        $product = Product::findOrFail($id);
-        $product->is_approved = true;
-        $product->save();
+        try {
+            $product = Product::findOrFail($id);
+            $product->update([
+                'is_approved' => true,
+                'is_rejected' => false
+            ]);
 
-        return redirect()->back()->with('success', 'Product approved successfully.');
+            return redirect()->back()->with('success', 'Product approved successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to approve product.');
+        }
     }
 
     // Reject a product
     public function reject($id)
     {
-        $product = Product::find($id);
-    
-        if ($product) {
-            $product->is_approved = false; // Ensure the `is_approved` field is updated if necessary
-            $product->is_rejected = true;
-            $product->save();
-    
-            return redirect()->back()->with('success', 'Product approved successfully.');
+        try {
+            $product = Product::findOrFail($id);
+            $product->update([
+                'is_approved' => false,
+                'is_rejected' => true
+            ]);
+
+            return redirect()->back()->with('success', 'Product rejected successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to reject product.');
         }
-    
-        return redirect()->back()->with('success', 'Product approved successfully.');
     }
-    
 
     // Show all approved products for the logged-in user
     public function showApprovedProducts()
     {
-        // Fetch products that are approved and belong to the logged-in user
+        // Fetch only approved products for the logged-in user
         $approvedProducts = Product::where('user_id', Auth::id())
-                                   ->where('is_approved', true)
-                                   ->get();
+                                 ->where('is_approved', true)
+                                 ->where('is_rejected', false)
+                                 ->orderBy('created_at', 'desc')
+                                 ->get();
 
-        // Return the view with the approved products for the user
         return view('productlisting', compact('approvedProducts'));
     }
 
     // Edit product
     public function edit($id)
     {
-        // Fetch the product by ID
         $product = Product::findOrFail($id);
+        
+        // Check if the user is the owner of the product
+        if (auth()->id() !== $product->user_id) {
+            abort(403, 'Unauthorized action.');
+        }
 
-        // Pass the product data to the edit view
-        return view('product.edit', compact('product'));
+        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        return view('seller.products.edit', compact('product', 'categories'));
     }
 
     // Update product
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
+        
+        // Check if the user is the owner of the product
+        if (auth()->id() !== $product->user_id) {
+            abort(403, 'Unauthorized action.');
+        }
 
         $request->validate([
             'product_name' => 'required|string|max:255',
@@ -141,7 +228,8 @@ class ProductController extends Controller
 
         $product->save();
 
-        return redirect()->route('admin.dashboard')->with('success', 'Product updated successfully');
+        return redirect()->route('seller.products.index')
+                        ->with('success', 'Product updated successfully');
     }
 
     // List approved products with advanced filtering
@@ -384,5 +472,20 @@ public function show($id)
     {
         $products = Product::where('user_id', auth()->id())->get();
         return view('seller.products.index', compact('products'));
+    }
+
+    // Show approved products for admin
+    public function approvedProducts()
+    {
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'Access denied. Admin only area.');
+        }
+
+        $products = Product::where('is_approved', true)
+                          ->where('is_rejected', false)
+                          ->orderBy('created_at', 'desc')
+                          ->get();
+
+        return view('admin.products.approved', compact('products'));
     }
 }

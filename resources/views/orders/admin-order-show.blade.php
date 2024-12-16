@@ -19,7 +19,7 @@
                                 {{ $order->delivery_status === 'cancelled' ? 'bg-red-100 text-red-800' : '' }}">
                                 {{ ucfirst($order->delivery_status) }}
                             </span>
-                            <span class="text-gray-600">Created: {{ $order->created_at->format('M d, Y H:i') }}</span>
+                            <span class="text-gray-600">Created: {{ $order->created_at->sriLankaFormat() }}</span>
                         </div>
                     </div>
 
@@ -92,11 +92,20 @@
                                     @foreach($order->items as $item)
                                         <tr>
                                             <td class="px-6 py-4">
-                                                @if($item->item_type === 'product')
-                                                    {{ $item->item->name }}
-                                                @else
-                                                    {{ $item->item->bundle_name }}
-                                                @endif
+                                                <div class="flex items-center">
+                                                    @if($item->item_type === 'product' && $item->item->image_path)
+                                                        <div class="flex-shrink-0 h-10 w-10 mr-3">
+                                                            <img class="h-10 w-10 rounded object-cover" src="{{ Storage::url($item->item->image_path) }}" alt="{{ $item->item->product_name }}">
+                                                        </div>
+                                                    @endif
+                                                    <div>
+                                                        @if($item->item_type === 'product')
+                                                            {{ $item->item->product_name }}
+                                                        @else
+                                                            {{ $item->item->bundle_name }}
+                                                        @endif
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4">{{ $item->seller->name }}</td>
                                             <td class="px-6 py-4">₹{{ number_format($item->price, 2) }}</td>
@@ -124,7 +133,7 @@
                                                     <p class="text-sm text-gray-600">Location: {{ $tracking->location }}</p>
                                                 @endif
                                             </div>
-                                            <p class="text-sm text-gray-500">{{ $tracking->created_at->format('M d, Y H:i') }}</p>
+                                            <p class="text-sm text-gray-500">{{ $tracking->created_at->sriLankaFormat() }}</p>
                                         </div>
                                     </div>
                                 @endforeach

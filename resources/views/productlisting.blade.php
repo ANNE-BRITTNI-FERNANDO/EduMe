@@ -129,9 +129,14 @@
                             <div class="group bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-1">
                                 <div class="relative h-64 bg-blue-100 dark:bg-gray-700">
                                     @if($product->image_path)
-                                        <img src="{{ asset('storage/' . $product->image_path) }}" 
-                                             alt="{{ $product->product_name }}" 
-                                             class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110">
+                                        <div class="relative">
+                                            <img src="{{ Storage::url($product->image_path) }}" alt="{{ $product->product_name }}" class="w-full h-48 object-cover">
+                                            @if($product->is_sold)
+                                                <div class="absolute top-0 right-0 bg-red-500 text-white px-2 py-1 m-2 rounded">
+                                                    Sold Out
+                                                </div>
+                                            @endif
+                                        </div>
                                     @else
                                         <div class="h-full flex items-center justify-center text-blue-300 dark:text-gray-400">
                                             <svg class="h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

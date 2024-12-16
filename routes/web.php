@@ -46,7 +46,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/set-as-delivery', [UserRoleController::class, 'setAsDeliveryPartner'])->name('set.delivery');
 
     // Delivery routes
-    Route::middleware(['auth'])->prefix('delivery')->name('delivery.')->group(function () {
+    Route::prefix('delivery')->name('delivery.')->group(function () {
         Route::get('/', [DeliveryController::class, 'dashboard'])->name('dashboard');
         Route::get('/create', [DeliveryController::class, 'create'])->name('create');
         Route::post('/calculate-fee', [DeliveryController::class, 'calculateFee'])->name('calculate-fee');
@@ -59,28 +59,34 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Seller routes
-    Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function () {
+    Route::prefix('seller')->name('seller.')->group(function () {
+        Route::get('/products', [ProductController::class, 'sellerProducts'])->name('products.index');
         Route::get('/dashboard', function() {
             $user = auth()->user();
             $products = $user->products()->with('user')->get();
             
-            // Calculate total earned
-            $totalEarned = \App\Models\Order::whereHas('items', function($query) use ($user) {
-                $query->where('seller_id', $user->id);
-            })->where('delivery_status', 'completed')->sum('total_amount');
+            // Calculate total earned from completed orders (excluding delivery fee)
+            $totalEarned = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
+                ->where('order_items.seller_id', $user->id)
+                ->where('orders.delivery_status', 'completed')
+                ->sum(\DB::raw('order_items.price * order_items.quantity'));
             
-            // Get available balance
-            $availableBalance = $user->seller_balance ?? 0;
+            // Get available balance (excluding delivery fee)
+            $availableBalance = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
+                ->where('order_items.seller_id', $user->id)
+                ->where('orders.delivery_status', 'completed')
+                ->sum(\DB::raw('order_items.price * order_items.quantity'));
             
-            // Get pending balance
-            $pendingBalance = \App\Models\Order::whereHas('items', function($query) use ($user) {
-                $query->where('seller_id', $user->id);
-            })->whereIn('delivery_status', ['pending', 'processing'])->sum('total_amount');
+            // Get pending balance from orders not yet completed (excluding delivery fee)
+            $pendingBalance = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
+                ->where('order_items.seller_id', $user->id)
+                ->whereIn('orders.delivery_status', ['pending', 'processing', 'delivered_to_warehouse', 'dispatched'])
+                ->sum(\DB::raw('order_items.price * order_items.quantity'));
             
             // Total products
             $totalProducts = $products->count();
             
-            $recentOrders = Order::whereHas('items', function($query) use ($user) {
+            $recentOrders = \App\Models\Order::whereHas('items', function($query) use ($user) {
                 $query->where('seller_id', $user->id);
             })->with(['items' => function($query) {
                 $query->with('item');
@@ -100,26 +106,48 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/bundles/{bundle}', [BundleController::class, 'update'])->name('bundles.update');
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+        Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    });
+
+    // Admin routes with role check
+    Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', function() {
+            if (auth()->user()->role !== 'admin') {
+                abort(403, 'Access denied. Admin only area.');
+            }
+            return app(AdminDashboardController::class)->index();
+        })->name('dashboard');
+        Route::get('/orders', [OrderController::class, 'adminIndex'])->name('orders.index');
+        Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
+        Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
+        Route::get('/approved', [ProductController::class, 'approvedProducts'])->name('products.approved');
+        Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
+        Route::prefix('payouts')->name('payouts.')->group(function () {
+            Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
+            Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
+            Route::get('/seller-balances', [AdminPayoutController::class, 'sellerBalances'])->name('seller-balances');
+            Route::get('/{payoutRequest}', [AdminPayoutController::class, 'show'])->name('show');
+            Route::post('/{payoutRequest}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
+            Route::post('/{payoutRequest}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
+        });
     });
 
     // Cart routes
-    Route::middleware(['auth'])->group(function () {
-        Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-        Route::get('/cart/add/product/{id}', [CartController::class, 'addProductToCart'])->name('cart.add.product');
-        Route::get('/cart/add/bundle/{id}', [CartController::class, 'addBundleToCart'])->name('cart.add.bundle');
-        Route::get('/cart/remove/product/{id}', [CartController::class, 'removeProductFromCart'])->name('cart.remove.product');
-        Route::get('/cart/remove/bundle/{id}', [CartController::class, 'removeBundleFromCart'])->name('cart.remove.bundle');
-        Route::post('/cart/update-delivery-fee', [CartController::class, 'updateDeliveryFee'])->name('cart.update-delivery-fee');
-        Route::get('/cart/get-districts/{province}', [CartController::class, 'getDistricts'])->name('cart.get-districts');
-    });
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::get('/cart/add/product/{id}', [CartController::class, 'addProductToCart'])->name('cart.add.product');
+    Route::get('/cart/add/bundle/{id}', [CartController::class, 'addBundleToCart'])->name('cart.add.bundle');
+    Route::get('/cart/remove/product/{id}', [CartController::class, 'removeProductFromCart'])->name('cart.remove.product');
+    Route::get('/cart/remove/bundle/{id}', [CartController::class, 'removeBundleFromCart'])->name('cart.remove.bundle');
+    Route::post('/cart/update-delivery-fee', [CartController::class, 'updateDeliveryFee'])->name('cart.update-delivery-fee');
+    Route::get('/cart/get-districts/{province}', [CartController::class, 'getDistricts'])->name('cart.get-districts');
 
     // Stripe payment routes
-    Route::middleware(['auth'])->group(function () {
-        Route::post('/stripe/checkout', [StripeController::class, 'checkout'])->name('stripe.checkout');
-        Route::get('/stripe/success', [StripeController::class, 'success'])->name('stripe.success');
-        Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
-    });
-        
+    Route::post('/stripe/checkout', [StripeController::class, 'checkout'])->name('stripe.checkout');
+    Route::get('/stripe/success', [StripeController::class, 'success'])->name('stripe.success');
+    Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
+
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
 });
 
@@ -146,35 +174,9 @@ Route::middleware(['verified'])->group(function () {
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/checkout', [OrderController::class, 'checkout'])->name('checkout');
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
-        
-    // Seller-specific routes
-    Route::middleware(['seller'])->group(function () {
-        Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
-    });
-});
 
-// Admin routes protected by middleware
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Dashboard
-    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-    
-    // Orders
-    Route::get('/orders', [OrderController::class, 'adminIndex'])->name('orders.index');
-    
-    // Bundles
-    Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
-    Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
-    Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
-    
-    // Payout Management Routes
-    Route::prefix('payouts')->name('payouts.')->group(function () {
-        Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
-        Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
-        Route::get('/seller-balances', [AdminPayoutController::class, 'sellerBalances'])->name('seller-balances');
-        Route::get('/{payoutRequest}', [AdminPayoutController::class, 'show'])->name('show');
-        Route::post('/{payoutRequest}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
-        Route::post('/{payoutRequest}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
-    });
+    // Seller-specific routes
+    Route::post('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
 });
 
 // Route for approving a product
@@ -203,7 +205,7 @@ Route::get('/home', function () {
 
 // Show approved products for the logged-in user
 Route::get('/approved-products', [ProductController::class, 'showApprovedProducts'])->name('approved.products');
-    
+
 // Profile management routes
 Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -218,12 +220,9 @@ Route::post('/products/{id}/reject', [ProductController::class, 'reject'])->name
 
 Route::get('/product/edit/{id}', [ProductController::class, 'edit'])->name('product.edit');
 Route::put('/product/{id}', [ProductController::class, 'update'])->name('product.update');
-// routes/web.php
 Route::delete('/product/{product}', [ProductController::class, 'destroy'])->name('product.destroy');
 
 // routes/web.php
-
-// In routes/web.php
 
 Route::get('/productlisting', [ProductController::class, 'listApprovedProducts'])->name('productlisting');
 
@@ -243,7 +242,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Admin Bundle routes
-Route::middleware(['auth', App\Http\Middleware\AdminMiddleware::class])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
     Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
     Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
@@ -329,7 +328,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Admin order routes
-Route::middleware(['auth', App\Http\Middleware\AdminMiddleware::class])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/orders/{order}', [OrderController::class, 'adminShow'])->name('orders.show');
 });
 
@@ -542,3 +541,15 @@ Route::get('/seller/orders/{order}', function($orderId) {
     
     return view('seller.orders.show', compact('order'));
 })->name('seller.orders.show');
+
+Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function () {
+    Route::middleware(['seller'])->group(function () {
+        // seller routes here
+    });
+});
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware(['admin'])->group(function () {
+        // admin routes here
+    });
+});

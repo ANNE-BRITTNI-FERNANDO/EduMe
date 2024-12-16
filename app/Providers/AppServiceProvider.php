@@ -26,5 +26,13 @@ class AppServiceProvider extends ServiceProvider
             'product' => Product::class,
             'bundle' => Bundle::class,
         ]);
+
+        // Set default timezone for Carbon
+        date_default_timezone_set('Asia/Colombo');
+        
+        // Format timestamps in Sri Lankan time
+        \Illuminate\Support\Facades\Date::macro('sriLankaFormat', function () {
+            return $this->setTimezone('Asia/Colombo')->format('Y-m-d h:i A');
+        });
     }
 }

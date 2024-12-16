@@ -25,7 +25,12 @@
                                 <h3 class="text-lg font-medium mb-4">Order Information</h3>
                                 <p class="text-gray-600"><span class="font-medium">Status:</span> {{ ucfirst(str_replace('_', ' ', $order->delivery_status)) }}</p>
                                 <p class="text-gray-600"><span class="font-medium">Order Date:</span> {{ $order->created_at->format('M d, Y H:i') }}</p>
-                                <p class="text-gray-600"><span class="font-medium">Total Amount:</span> Rs. {{ number_format($order->total_amount, 2) }}</p>
+                                @php
+                                    $productTotal = $order->items->sum(function($item) {
+                                        return $item->price * $item->quantity;
+                                    });
+                                @endphp
+                                <p class="text-gray-600"><span class="font-medium">Total Amount:</span> Rs. {{ number_format($productTotal, 2) }}</p>
                             </div>
                             <div>
                                 <h3 class="text-lg font-medium mb-4">Customer Information</h3>
