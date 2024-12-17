@@ -39,7 +39,24 @@ class OrderItem extends Model
 
     public function item(): MorphTo
     {
-        return $this->morphTo();
+        $map = [
+            'product' => Product::class,
+            'bundle' => Bundle::class,
+        ];
+
+        $type = $this->item_type;
+        if (isset($map[$type])) {
+            $this->item_type = $map[$type];
+        }
+
+        return $this->morphTo()->withDefault(function ($morphTo, $model) {
+            if ($model instanceof OrderItem) {
+                return new Product([
+                    'product_name' => 'Unknown Product',
+                    'price' => $model->price
+                ]);
+            }
+        });
     }
 
     public function payoutRequests(): HasMany
@@ -55,5 +72,20 @@ class OrderItem extends Model
     public function getSubtotalAttribute()
     {
         return $this->price * $this->quantity;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($orderItem) {
+            // Convert the item_type to lowercase when creating
+            $orderItem->item_type = strtolower($orderItem->item_type);
+        });
+
+        static::updating(function ($orderItem) {
+            // Convert the item_type to lowercase when updating
+            $orderItem->item_type = strtolower($orderItem->item_type);
+        });
     }
 }

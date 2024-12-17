@@ -200,7 +200,8 @@ class StripeController extends Controller
                             'subtotal' => $sellerOrder['total'],
                             'total_amount' => $sellerOrder['total'] + $sellerDeliveryFee,
                             'delivery_fee' => $sellerDeliveryFee,
-                            'status' => 'processing',
+                            'status' => 'confirmed',
+                            'confirmed_at' => now(),
                             'payment_status' => 'completed',
                             'payment_id' => $session->payment_intent,
                             'payment_method' => 'stripe',
@@ -220,6 +221,55 @@ class StripeController extends Controller
                                 'item_type' => $item['type'],
                                 'item_id' => $item['item_id']
                             ]);
+
+                            // Mark product or bundle as sold
+                            if ($item['type'] === 'product') {
+                                \DB::table('products')
+                                    ->where('id', $item['item_id'])
+                                    ->update([
+                                        'is_sold' => true,
+                                        'quantity' => 0,
+                                        'updated_at' => now()
+                                    ]);
+                                
+                                \Log::info('Product marked as sold after payment', [
+                                    'product_id' => $item['item_id'],
+                                    'order_id' => $order->id
+                                ]);
+                            } elseif ($item['type'] === 'bundle') {
+                                // Mark bundle as sold
+                                \DB::table('bundles')
+                                    ->where('id', $item['item_id'])
+                                    ->update([
+                                        'status' => 'sold',
+                                        'is_sold' => true,
+                                        'quantity' => 0,
+                                        'updated_at' => now()
+                                    ]);
+
+                                // Get and mark all products in the bundle categories
+                                $bundleCategories = \DB::table('bundle_categories')
+                                    ->where('bundle_id', $item['item_id'])
+                                    ->get();
+
+                                foreach ($bundleCategories as $category) {
+                                    // Find products in this category that aren't sold yet
+                                    \DB::table('products')
+                                        ->where('category', $category->category)
+                                        ->where('is_sold', false)
+                                        ->update([
+                                            'is_sold' => true,
+                                            'quantity' => 0,
+                                            'updated_at' => now()
+                                        ]);
+                                }
+                                
+                                \Log::info('Bundle and its category products marked as sold after payment', [
+                                    'bundle_id' => $item['item_id'],
+                                    'categories' => $bundleCategories->pluck('category'),
+                                    'order_id' => $order->id
+                                ]);
+                            }
 
                             // Update seller balance
                             $sellerBalance = SellerBalance::firstOrCreate(
@@ -257,12 +307,20 @@ class StripeController extends Controller
                     ]);
                 } catch (\Exception $e) {
                     \DB::rollback();
+                    \Log::error('Failed to process successful payment', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                     throw $e;
                 }
             }
 
             return redirect()->route('cart.index')->with('error', 'Payment was not successful');
         } catch (\Exception $e) {
+            \Log::error('Error in payment success callback', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->route('cart.index')->with('error', 'Error processing payment: ' . $e->getMessage());
         }
     }

@@ -53,6 +53,29 @@ class SellerBalance extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
+    public function addEarnings($amount, $deliveryFeeShare = 0)
+    {
+        return DB::transaction(function () use ($amount, $deliveryFeeShare) {
+            // First, add the delivery fee to total_delivery_fees_earned
+            if ($deliveryFeeShare > 0) {
+                DB::statement("
+                    UPDATE seller_balances 
+                    SET total_delivery_fees_earned = total_delivery_fees_earned + ?
+                    WHERE seller_id = ?
+                ", [$deliveryFeeShare, $this->seller_id]);
+            }
+
+            // Then add the total amount (including delivery fee) to pending balance
+            return DB::statement("
+                UPDATE seller_balances 
+                SET pending_balance = pending_balance + ?,
+                    total_earned = total_earned + ?,
+                    balance_to_be_paid = available_balance + pending_balance + ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $amount, $this->seller_id]);
+        });
+    }
+
     public function addToAvailableBalance($amount)
     {
         return DB::transaction(function () use ($amount) {
@@ -76,6 +99,29 @@ class SellerBalance extends Model
                     balance_to_be_paid = available_balance + pending_balance + ?
                 WHERE seller_id = ?
             ", [$amount, $amount, $amount, $this->seller_id]);
+        });
+    }
+
+    public function deductFromPending($amount)
+    {
+        return DB::transaction(function () use ($amount) {
+            // First check if we have enough pending balance
+            $currentBalance = DB::selectOne("
+                SELECT pending_balance 
+                FROM seller_balances 
+                WHERE seller_id = ?
+            ", [$this->seller_id])->pending_balance;
+
+            if ($currentBalance < $amount) {
+                throw new \Exception('Insufficient pending balance for payout');
+            }
+
+            return DB::statement("
+                UPDATE seller_balances 
+                SET pending_balance = pending_balance - ?,
+                    balance_to_be_paid = available_balance + (pending_balance - ?)
+                WHERE seller_id = ?
+            ", [$amount, $amount, $this->seller_id]);
         });
     }
 

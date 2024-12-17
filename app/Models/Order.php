@@ -31,7 +31,9 @@ class Order extends Model
         'warehouse_id',
         'warehouse_confirmed_at',
         'dispatched_at',
-        'delivered_at'
+        'delivered_at',
+        'status',
+        'confirmed_at'
     ];
 
     protected $casts = [

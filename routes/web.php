@@ -42,44 +42,35 @@ Route::middleware(['auth'])->group(function () {
     })->name('dashboard1');
 
     // User role routes
-    Route::post('/set-as-seller', [UserRoleController::class, 'setAsSeller'])->name('set.seller');
-    Route::post('/set-as-buyer', [UserRoleController::class, 'setAsBuyer'])->name('set.buyer');
-    Route::post('/set-as-delivery', [UserRoleController::class, 'setAsDeliveryPartner'])->name('set.delivery');
-
-    // Delivery routes
-    Route::prefix('delivery')->name('delivery.')->group(function () {
-        Route::get('/', [DeliveryController::class, 'dashboard'])->name('dashboard');
-        Route::get('/create', [DeliveryController::class, 'create'])->name('create');
-        Route::post('/calculate-fee', [DeliveryController::class, 'calculateFee'])->name('calculate-fee');
-        Route::post('/store', [DeliveryController::class, 'store'])->name('store');
-        Route::get('/track/{delivery}', [DeliveryController::class, 'track'])->name('track');
-        Route::get('/warehouses/map', [WarehouseController::class, 'map'])->name('warehouses.map');
-        Route::get('/tracking', [DeliveryTrackingController::class, 'index'])->name('tracking');
-        Route::get('/tracking/{trackingNumber}', [DeliveryTrackingController::class, 'show'])->name('tracking.show');
-        Route::post('/tracking/{trackingNumber}/update', [DeliveryTrackingController::class, 'update'])->name('tracking.update');
+    Route::middleware(['auth'])->group(function () {
+        Route::post('/set-as-seller', [UserRoleController::class, 'setAsSeller'])->name('set.seller');
+        Route::post('/set-as-buyer', [UserRoleController::class, 'setAsBuyer'])->name('set.buyer');
+        Route::post('/set-as-delivery', [UserRoleController::class, 'setAsDeliveryPartner'])->name('set.delivery');
     });
 
-    // Seller routes
-    Route::prefix('seller')->name('seller.')->group(function () {
-        Route::get('/products', [ProductController::class, 'sellerProducts'])->name('products.index');
-        Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
-        Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
-        Route::post('/orders/{order}/status', [SellerOrderController::class, 'updateDeliveryStatus'])->name('orders.update.status');
-        Route::get('/earnings', [SellerEarningsController::class, 'index'])->name('earnings.index');
-        Route::post('/earnings/request-payout', [SellerEarningsController::class, 'requestPayout'])->name('earnings.request-payout');
-        Route::post('/earnings/toggle-details', [SellerEarningsController::class, 'toggleDetails'])->name('earnings.toggle-details');
-        Route::get('/earnings/download-receipt/{payout}', [SellerEarningsController::class, 'downloadReceipt'])->name('earnings.download-receipt');
-        Route::get('/bundles', [BundleController::class, 'index'])->name('bundles.index');
-        Route::get('/bundles/create', [BundleController::class, 'create'])->name('bundles.create');
-        Route::post('/bundles', [BundleController::class, 'store'])->name('bundles.store');
-        Route::get('/bundles/{bundle}/edit', [BundleController::class, 'edit'])->name('bundles.edit');
-        Route::put('/bundles/{bundle}', [BundleController::class, 'update'])->name('bundles.update');
-        Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
-        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-        Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
-        Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
-        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    // Seller routes with single middleware group
+    Route::middleware(['auth'])->group(function () {
+        Route::prefix('seller')->name('seller.')->group(function () {
+            Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/products', [ProductController::class, 'sellerProducts'])->name('products.index');
+            Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
+            Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
+            Route::post('/orders/{order}/status', [SellerOrderController::class, 'updateDeliveryStatus'])->name('orders.update.status');
+            Route::get('/earnings', [SellerEarningsController::class, 'index'])->name('earnings.index');
+            Route::post('/earnings/request-payout', [SellerEarningsController::class, 'requestPayout'])->name('earnings.request-payout');
+            Route::post('/earnings/toggle-details', [SellerEarningsController::class, 'toggleDetails'])->name('earnings.toggle-details');
+            Route::get('/earnings/download-receipt/{payout}', [SellerEarningsController::class, 'downloadReceipt'])->name('earnings.download-receipt');
+            Route::get('/bundles', [BundleController::class, 'index'])->name('bundles.index');
+            Route::get('/bundles/create', [BundleController::class, 'create'])->name('bundles.create');
+            Route::post('/bundles', [BundleController::class, 'store'])->name('bundles.store');
+            Route::get('/bundles/{bundle}/edit', [BundleController::class, 'edit'])->name('bundles.edit');
+            Route::put('/bundles/{bundle}', [BundleController::class, 'update'])->name('bundles.update');
+            Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+            Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+            Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+            Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+            Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+        });
     });
 
     // Admin routes with role check
@@ -97,11 +88,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/orders/{order}/update-status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
 
         // Payouts
-        Route::get('/payouts', [AdminPayoutController::class, 'index'])->name('payouts.index');
-        Route::get('/payouts/{payout}', [AdminPayoutController::class, 'show'])->name('payouts.show');
-        Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
-        Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
-        Route::post('/payouts/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('payouts.upload-receipt');
+        Route::prefix('payouts')->name('payouts.')->group(function () {
+            Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
+            Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
+            Route::get('/seller-balances', [AdminPayoutController::class, 'sellerBalances'])->name('seller-balances');
+            Route::get('/{payout}', [AdminPayoutController::class, 'show'])->name('show');
+            Route::post('/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
+            Route::post('/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
+            Route::post('/{payout}/complete', [AdminPayoutController::class, 'complete'])->name('complete');
+            Route::post('/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('upload-receipt');
+        });
 
         Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
         Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
@@ -129,6 +125,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/stripe/checkout', [StripeController::class, 'checkout'])->name('stripe.checkout');
     Route::get('/stripe/success', [StripeController::class, 'success'])->name('stripe.success');
     Route::get('/stripe/cancel', [StripeController::class, 'cancel'])->name('stripe.cancel');
+    Route::post('/webhook/stripe', [App\Http\Controllers\PaymentController::class, 'handleStripeWebhook'])->name('stripe.webhook');
 
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
 });
@@ -355,6 +352,12 @@ Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function (
     Route::get('/earnings/download-receipt/{payout}', [SellerEarningsController::class, 'downloadReceipt'])->name('earnings.download-receipt');
 });
 
+// Buyer routes
+Route::middleware(['auth', 'checkmode'])->prefix('buyer')->name('buyer.')->group(function () {
+    Route::get('/dashboard', [BuyerDashboardController::class, 'index'])->name('dashboard');
+    // ... other buyer routes ...
+});
+
 // Warehouse Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
@@ -537,3 +540,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         // admin routes here
     });
 });
+
+// Payment webhook
+Route::post('/stripe/webhook', [PaymentController::class, 'handleStripeWebhook'])->name('stripe.webhook');

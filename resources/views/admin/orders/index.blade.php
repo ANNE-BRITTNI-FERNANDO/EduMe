@@ -132,7 +132,7 @@
                                 @foreach($order->items as $item)
                                     <div class="flex items-center space-x-3">
                                         <div class="flex-shrink-0 w-12 h-12">
-                                            @if($item->item_type === 'App\\Models\\Product' && $item->item)
+                                            @if($item->item_type === 'App\Models\Product' && $item->item)
                                                 @if($item->item->image_path)
                                                     <img class="w-full h-full object-cover rounded" src="{{ Storage::url($item->item->image_path) }}" alt="{{ $item->item->product_name }}">
                                                 @else
@@ -142,7 +142,7 @@
                                                         </svg>
                                                     </div>
                                                 @endif
-                                            @elseif($item->item_type === 'App\\Models\\Bundle')
+                                            @elseif($item->item_type === 'App\Models\Bundle')
                                                 <div class="w-full h-full bg-indigo-100 rounded flex items-center justify-center">
                                                     <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -152,9 +152,9 @@
                                         </div>
                                         <div>
                                             <div class="font-medium">
-                                                @if($item->item_type === 'App\\Models\\Product' && $item->item)
+                                                @if($item->item_type === 'App\Models\Product' && $item->item)
                                                     {{ $item->item->product_name }}
-                                                @elseif($item->item_type === 'App\\Models\\Bundle' && $item->item)
+                                                @elseif($item->item_type === 'App\Models\Bundle' && $item->item)
                                                     {{ $item->item->bundle_name }}
                                                 @else
                                                     Unknown Item

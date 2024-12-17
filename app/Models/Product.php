@@ -19,6 +19,7 @@ class Product extends Model
         'user_id',
         'is_approved',
         'is_rejected',
+        'quantity',
         'is_sold'
     ];
 
@@ -27,7 +28,8 @@ class Product extends Model
         'price' => 'float',
         'is_sold' => 'boolean',
         'is_approved' => 'boolean',
-        'is_rejected' => 'boolean'
+        'is_rejected' => 'boolean',
+        'quantity' => 'integer'
     ];
 
     // Accessor for getting the full URL of the image
@@ -45,5 +47,36 @@ class Product extends Model
     public function orderItems(): MorphMany
     {
         return $this->morphMany(OrderItem::class, 'item');
+    }
+
+    // Scope for available products
+    public function scopeAvailable($query)
+    {
+        return $query->where('is_approved', true)
+                    ->where('is_rejected', false)
+                    ->where('is_sold', false)
+                    ->where('quantity', '>', 0);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Log when a product is updated
+        static::updating(function ($product) {
+            \Log::info('Product being updated', [
+                'product_id' => $product->id,
+                'dirty' => $product->getDirty(),
+                'original' => $product->getOriginal()
+            ]);
+        });
+
+        static::updated(function ($product) {
+            \Log::info('Product was updated', [
+                'product_id' => $product->id,
+                'is_sold' => $product->is_sold,
+                'quantity' => $product->quantity
+            ]);
+        });
     }
 }

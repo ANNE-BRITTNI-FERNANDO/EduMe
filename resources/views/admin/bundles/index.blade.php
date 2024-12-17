@@ -49,10 +49,11 @@
                                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                                         {{ $bundle->bundle_name }}
                                         <span class="ml-2 px-2 py-1 text-xs rounded-full 
-                                            {{ $bundle->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                            {{ $bundle->is_sold ? 'bg-gray-100 text-gray-800' : 
+                                               ($bundle->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                                                ($bundle->status === 'approved' ? 'bg-green-100 text-green-800' : 
-                                                'bg-red-100 text-red-800') }}">
-                                            {{ ucfirst($bundle->status) }}
+                                                'bg-red-100 text-red-800')) }}">
+                                            {{ $bundle->is_sold ? 'Sold' : ucfirst($bundle->status) }}
                                         </span>
                                     </h3>
                                     <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">

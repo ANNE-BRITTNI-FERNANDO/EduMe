@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Conversation;
+use App\Models\Product;
+use App\Models\Bundle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,135 @@ class OrderController extends Controller
     {
         $this->payoutService = $payoutService;
         $this->sellerBalanceService = $sellerBalanceService;
+    }
+
+    public function confirmOrder(Order $order)
+    {
+        DB::beginTransaction();
+        try {
+            // Update order status
+            $order->update([
+                'status' => 'confirmed',
+                'confirmed_at' => now(),
+                'delivery_status' => 'processing'
+            ]);
+
+            // Mark all items in the order as sold
+            foreach ($order->items as $orderItem) {
+                if (strtolower($orderItem->item_type) === 'product') {
+                    DB::table('products')
+                        ->where('id', $orderItem->item_id)
+                        ->update([
+                            'is_sold' => true,
+                            'quantity' => 0,
+                            'updated_at' => now()
+                        ]);
+                    
+                    \Log::info('Product marked as sold', [
+                        'product_id' => $orderItem->item_id,
+                        'order_id' => $order->id
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Failed to confirm order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    public function updateStatus(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending,processing,delivered_to_warehouse,dispatched,completed,cancelled'
+        ]);
+
+        $previousStatus = $order->delivery_status;
+        
+        DB::beginTransaction();
+        try {
+            // Update order status
+            $order->delivery_status = $validated['status'];
+            $order->save();
+
+            // If order is completed or processing, mark items as sold
+            if (in_array($validated['status'], ['completed', 'processing'])) {
+                foreach ($order->items as $item) {
+                    // Convert item_type to lowercase for comparison
+                    $itemType = strtolower($item->item_type);
+
+                    if ($itemType === 'product') {
+                        try {
+                            $product = Product::findOrFail($item->item_id);
+                            
+                            // Log before product update
+                            \Log::info('Before product status update', [
+                                'product_id' => $product->id,
+                                'current_is_sold' => $product->is_sold,
+                                'current_quantity' => $product->quantity
+                            ]);
+
+                            $product->update([
+                                'is_sold' => true,
+                                'quantity' => 0
+                            ]);
+                            
+                            $product->refresh();
+                            
+                            // Log after product update
+                            \Log::info('After product status update', [
+                                'product_id' => $product->id,
+                                'new_is_sold' => $product->is_sold,
+                                'new_quantity' => $product->quantity
+                            ]);
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to update product status', [
+                                'product_id' => $item->item_id,
+                                'error' => $e->getMessage()
+                            ]);
+                            throw $e;
+                        }
+                    } elseif ($itemType === 'bundle') {
+                        try {
+                            $bundle = Bundle::findOrFail($item->item_id);
+                            $bundle->update([
+                                'is_sold' => true,
+                                'quantity' => 0
+                            ]);
+                            
+                            foreach ($bundle->products as $product) {
+                                $product->update([
+                                    'is_sold' => true,
+                                    'quantity' => 0
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to update bundle status', [
+                                'bundle_id' => $item->item_id,
+                                'error' => $e->getMessage()
+                            ]);
+                            throw $e;
+                        }
+                    }
+                }
+            }
+            
+            // Update seller balances
+            $this->sellerBalanceService->updateBalanceForOrderStatus($order, $validated['status'], $previousStatus);
+            
+            DB::commit();
+            return back()->with('success', 'Order status updated successfully');
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Order status update failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update order status: ' . $e->getMessage());
+        }
     }
 
     public function index()
@@ -78,42 +209,6 @@ class OrderController extends Controller
         $warehouses = Warehouse::where('pickup_available', true)->get();
         
         return view('orders.show', compact('order', 'seller', 'warehouses'));
-    }
-
-    public function updateStatus(Request $request, Order $order)
-    {
-        $request->validate([
-            'status' => 'required|in:pending,processing,delivered_to_warehouse,dispatched,completed,cancelled'
-        ]);
-
-        $previousStatus = $order->delivery_status;
-        
-        DB::beginTransaction();
-        try {
-            // First update the order status
-            $order->delivery_status = $request->status;
-            $order->save();
-
-            // If order is completed, mark products as sold
-            if ($request->status === 'completed') {
-                foreach ($order->items as $item) {
-                    if ($item->item_type === 'App\\Models\\Product') {
-                        $item->item->update(['is_sold' => true]);
-                    }
-                }
-            }
-
-            // Update seller balances using the service
-            $this->sellerBalanceService->updateBalanceForOrderStatus($order, $request->status, $previousStatus);
-            
-            DB::commit();
-            
-            return back()->with('success', 'Order status updated successfully');
-        } catch (\Exception $e) {
-            DB::rollback();
-            \Log::error('Order status update failed: ' . $e->getMessage());
-            return back()->with('error', 'Failed to update order status. Please try again.');
-        }
     }
 
     public function adminIndex()
@@ -188,59 +283,6 @@ class OrderController extends Controller
         ]);
     }
 
-    public function confirmOrder(Request $request, Order $order)
-    {
-        // Only the seller can confirm the order
-        if ($order->seller_id !== Auth::id()) {
-            return response()->json([
-                'error' => 'Unauthorized'
-            ], 403);
-        }
-
-        DB::beginTransaction();
-        try {
-            // Update order status to completed
-            $order->update([
-                'delivery_status' => 'completed',
-                'confirmed_at' => now()
-            ]);
-
-            // Mark products as sold
-            foreach ($order->items as $item) {
-                if ($item->item_type === 'product') {
-                    $product = $item->item;
-                    $product->update(['is_sold' => true]);
-                }
-            }
-
-            // Update seller balances using the service
-            $this->sellerBalanceService->updateBalanceForOrderConfirmation($order);
-
-            // Send a system message in the conversation
-            if ($order->conversation) {
-                $order->conversation->messages()->create([
-                    'sender_id' => Auth::id(),
-                    'content' => "✅ Order #" . $order->id . " has been confirmed by the seller!",
-                    'is_system_message' => true
-                ]);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Order confirmed successfully',
-                'order' => $order
-            ]);
-        } catch (\Exception $e) {
-            DB::rollback();
-            \Log::error('Order confirmation failed: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'Failed to confirm order'
-            ], 500);
-        }
-    }
-
     public function getOrderDetails(Order $order)
     {
         // Check if user is either buyer or seller
@@ -272,7 +314,7 @@ class OrderController extends Controller
             // Mark products as sold when order is confirmed/shipped/delivered
             if (in_array($validated['status'], ['processing', 'shipped', 'delivered'])) {
                 foreach ($order->items as $item) {
-                    if ($item->item_type === 'product') {
+                    if ($item->item_type === 'App\\Models\\Product') {
                         $product = $item->item;
                         $product->update(['is_sold' => true]);
                     }

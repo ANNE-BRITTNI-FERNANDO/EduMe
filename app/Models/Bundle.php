@@ -12,15 +12,22 @@ class Bundle extends Model
 
     protected $fillable = [
         'bundle_name',
-        'description',
-        'price',
+        'bundle_description',
         'bundle_image',
-        'status',
-        'user_id'
+        'price',
+        'user_id',
+        'is_approved',
+        'is_rejected',
+        'rejection_reason',
+        'is_sold',
+        'quantity'
     ];
 
     protected $casts = [
         'price' => 'float',
+        'is_approved' => 'boolean',
+        'is_rejected' => 'boolean',
+        'quantity' => 'integer'
     ];
 
     public function categories()
@@ -46,5 +53,13 @@ class Bundle extends Model
     public function orderItems(): MorphMany
     {
         return $this->morphMany(OrderItem::class, 'item');
+    }
+
+    public function scopeAvailable($query)
+    {
+        return $query->where('status', '!=', 'sold')
+                    ->where('is_approved', true)
+                    ->where('is_rejected', false)
+                    ->where('quantity', '>', 0);
     }
 }

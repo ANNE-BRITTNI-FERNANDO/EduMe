@@ -79,6 +79,8 @@ class SellerOrderController extends Controller
         // Define valid status transitions
         $validStatuses = [
             'pending' => ['delivered_to_warehouse'],
+            'confirmed' => ['delivered_to_warehouse'],
+            'processing' => ['delivered_to_warehouse'],
             'delivered_to_warehouse' => ['dispatched'],
             'dispatched' => ['delivered']
         ];

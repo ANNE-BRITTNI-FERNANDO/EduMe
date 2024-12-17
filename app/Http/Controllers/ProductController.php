@@ -238,14 +238,19 @@ class ProductController extends Controller
         // Define categories for the dropdown
         $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
         
-        // Start with base query
-        $query = Product::where('is_approved', true);
+        // Start with base query for available products only
+        $query = Product::where('is_approved', true)
+                       ->where('is_rejected', false)
+                       ->where('is_sold', false)
+                       ->where('quantity', '>', 0);
         
         // Get the authenticated user's location
         $buyerLocation = Auth::check() ? Auth::user()->location : null;
 
         // Get all unique locations from users who have products
         $locations = Product::where('is_approved', true)
+            ->where('is_sold', false)
+            ->where('quantity', '>', 0)
             ->join('users', 'products.user_id', '=', 'users.id')
             ->whereNotNull('users.location')
             ->distinct()
@@ -288,24 +293,17 @@ class ProductController extends Controller
         }
 
         // Get products with their sellers
-        $products = $query->with('user')->get();
+        $approvedProducts = $query->with('user')->get();
 
         // Sort by location if buyer location is available and no specific location is selected
         if ($buyerLocation && !$request->filled('location')) {
-            $products = $products->sortBy(function($product) use ($buyerLocation) {
+            $approvedProducts = $approvedProducts->sortBy(function($product) use ($buyerLocation) {
                 if (!$product->user || !$product->user->location) {
                     return PHP_FLOAT_MAX;
                 }
                 return $this->calculateLocationDistance($buyerLocation, $product->user->location);
             });
         }
-
-        $selectedCategory = $request->category;
-        
-        // Convert sorted collection back to collection if needed
-        $approvedProducts = $products instanceof \Illuminate\Support\Collection 
-            ? $products 
-            : collect($products);
 
         return view('productlisting', compact('approvedProducts', 'categories', 'locations'));
     }

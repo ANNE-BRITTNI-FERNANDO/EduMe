@@ -95,36 +95,49 @@ class PayoutController extends Controller
         }
     }
 
-    public function complete(Request $request, PayoutRequest $payoutRequest)
+    public function complete(Request $request, PayoutRequest $payout)
     {
         $request->validate([
-            'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'transaction_id' => 'required|string|max:255'
+            'transaction_id' => 'required|string|max:255',
+            'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048'
+        ]);
+
+        \Log::info('Attempting to complete payout', [
+            'payout_id' => $payout->id,
+            'current_status' => $payout->status,
+            'transaction_id' => $request->transaction_id
         ]);
 
         try {
-            DB::transaction(function () use ($payoutRequest, $request) {
-                // Store the receipt
-                if ($request->hasFile('receipt')) {
-                    $path = $request->file('receipt')->store('payout-receipts', 'public');
-                    $payoutRequest->receipt_path = $path;
-                    $payoutRequest->receipt_uploaded_at = now();
-                }
+            DB::transaction(function () use ($payout, $request) {
+                // Complete the payout using the model's method
+                $payout->complete(auth()->id());
 
-                // Update status to completed with all details
-                $payoutRequest->update([
-                    'status' => 'completed',
-                    'completed_at' => now(),
-                    'completed_by' => auth()->id(),
-                    'transaction_id' => $request->transaction_id,
-                    'processed_at' => now(),
-                    'processed_by' => auth()->id()
-                ]);
+                // Store receipt
+                if ($request->hasFile('receipt')) {
+                    // Delete old receipt if exists
+                    if ($payout->receipt_path) {
+                        Storage::delete($payout->receipt_path);
+                    }
+
+                    // Store new receipt
+                    $path = $request->file('receipt')->store('receipts', 'public');
+                    
+                    // Update transaction ID and receipt path
+                    $payout->update([
+                        'transaction_id' => $request->transaction_id,
+                        'receipt_path' => $path,
+                        'receipt_uploaded_at' => now()
+                    ]);
+                }
             });
 
-            return redirect()->back()->with('success', 'Payout marked as completed and receipt uploaded successfully.');
+            return redirect()->back()->with('success', 'Payout marked as completed successfully.');
         } catch (\Exception $e) {
-            \Log::error('Failed to complete payout: ' . $e->getMessage());
+            \Log::error('Failed to complete payout: ' . $e->getMessage(), [
+                'payout_id' => $payout->id,
+                'current_status' => $payout->status
+            ]);
             return redirect()->back()->with('error', 'Failed to complete payout: ' . $e->getMessage());
         }
     }
@@ -199,8 +212,8 @@ class PayoutController extends Controller
             'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048'
         ]);
 
-        if ($payout->status !== 'approved' && $payout->status !== 'completed') {
-            return back()->with('error', 'Can only upload receipt for approved or completed payouts.');
+        if ($payout->status !== 'approved') {
+            return back()->with('error', 'Can only upload receipt for approved payouts.');
         }
 
         if ($request->hasFile('receipt')) {
@@ -214,8 +227,7 @@ class PayoutController extends Controller
             
             $payout->update([
                 'receipt_path' => $path,
-                'status' => 'completed',
-                'processed_at' => now()
+                'receipt_uploaded_at' => now()
             ]);
 
             return back()->with('success', 'Receipt uploaded successfully.');

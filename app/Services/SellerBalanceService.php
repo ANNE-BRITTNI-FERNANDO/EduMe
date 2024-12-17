@@ -10,86 +10,82 @@ class SellerBalanceService
 {
     public function updateBalanceForOrderStatus(Order $order, string $newStatus, ?string $previousStatus = null)
     {
+        \Log::info("Starting balance update", [
+            'order_id' => $order->id,
+            'new_status' => $newStatus,
+            'previous_status' => $previousStatus
+        ]);
+
         DB::beginTransaction();
         try {
-            foreach ($order->items->groupBy('seller_id') as $sellerId => $items) {
-                // First, ensure the seller balance record exists
-                SellerBalance::firstOrCreate(
-                    ['seller_id' => $sellerId],
-                    [
-                        'available_balance' => 0,
-                        'pending_balance' => 0,
-                        'total_earned' => 0,
-                        'balance_to_be_paid' => 0
-                    ]
-                );
-
-                // Calculate the total amount for this order's items for this seller
-                $orderAmount = $items->sum(function($item) {
+            // First calculate all seller shares including delivery fees
+            $sellerShares = $order->calculateSellerShares();
+            
+            foreach ($sellerShares as $sellerId => $totalAmount) {
+                // Get the seller's items for this order
+                $items = $order->items->where('seller_id', $sellerId);
+                
+                // Calculate product amount and delivery fee separately
+                $productAmount = $items->sum(function($item) {
                     return $item->price * $item->quantity;
                 });
+                
+                $deliveryFeeShare = $totalAmount - $productAmount;
 
-                // Update balances based on status change
-                if ($newStatus === 'cancelled') {
-                    if ($previousStatus === 'pending' || $previousStatus === 'processing') {
-                        DB::statement("
-                            UPDATE seller_balances
-                            SET pending_balance = pending_balance - ?,
-                                total_earned = total_earned - ?
-                            WHERE seller_id = ?
-                        ", [$orderAmount, $orderAmount, $sellerId]);
-                    } elseif (in_array($previousStatus, ['completed', 'delivered', 'confirmed', 'delivered_to_warehouse', 'dispatched'])) {
-                        DB::statement("
-                            UPDATE seller_balances
-                            SET available_balance = available_balance - ?,
-                                total_earned = total_earned - ?
-                            WHERE seller_id = ?
-                        ", [$orderAmount, $orderAmount, $sellerId]);
-                    }
-                } elseif (in_array($newStatus, ['completed', 'delivered', 'confirmed', 'delivered_to_warehouse', 'dispatched'])) {
-                    if ($previousStatus === 'pending' || $previousStatus === 'processing') {
-                        DB::statement("
-                            UPDATE seller_balances
-                            SET pending_balance = pending_balance - ?,
-                                available_balance = available_balance + ?
-                            WHERE seller_id = ?
-                        ", [$orderAmount, $orderAmount, $sellerId]);
-                    } elseif ($previousStatus === null) {
-                        DB::statement("
-                            UPDATE seller_balances
-                            SET available_balance = available_balance + ?,
-                                total_earned = total_earned + ?
-                            WHERE seller_id = ?
-                        ", [$orderAmount, $orderAmount, $sellerId]);
-                    }
-                } elseif ($newStatus === 'pending' || $newStatus === 'processing') {
-                    if ($previousStatus === null) {
-                        DB::statement("
-                            UPDATE seller_balances
-                            SET pending_balance = pending_balance + ?,
-                                total_earned = total_earned + ?
-                            WHERE seller_id = ?
-                        ", [$orderAmount, $orderAmount, $sellerId]);
-                    }
+                \Log::info("Processing balance update", [
+                    'seller_id' => $sellerId,
+                    'amount' => $totalAmount,
+                    'new_status' => $newStatus
+                ]);
+
+                // Get current balance
+                $balance = SellerBalance::where('seller_id', $sellerId)->first();
+                if (!$balance) {
+                    $balance = new SellerBalance();
+                    $balance->seller_id = $sellerId;
+                    $balance->available_balance = 0;
+                    $balance->pending_balance = 0;
+                    $balance->total_earned = 0;
+                    $balance->balance_to_be_paid = 0;
+                    $balance->total_delivery_fees_earned = 0;
+                    $balance->save();
                 }
 
-                // Update balance_to_be_paid
-                DB::statement("
-                    UPDATE seller_balances
-                    SET balance_to_be_paid = available_balance + pending_balance
-                    WHERE seller_id = ?
-                ", [$sellerId]);
+                if ($newStatus === 'delivered_to_warehouse') {
+                    // Super simple update - just move the amount
+                    $balance->pending_balance -= $totalAmount;
+                    $balance->available_balance += $totalAmount;
+                    $balance->save();
 
-                // Log the updated balances for debugging
-                $balance = SellerBalance::where('seller_id', $sellerId)->first();
-                \Log::info("Updated balance for seller $sellerId", [
+                    \Log::info("Updated balance for delivered_to_warehouse", [
+                        'seller_id' => $sellerId,
+                        'amount_moved' => $totalAmount,
+                        'new_pending' => $balance->pending_balance,
+                        'new_available' => $balance->available_balance
+                    ]);
+                }
+                elseif ($newStatus === 'cancelled') {
+                    $balance->pending_balance -= $totalAmount;
+                    $balance->total_earned -= $totalAmount;
+                    $balance->total_delivery_fees_earned -= $deliveryFeeShare;
+                    $balance->save();
+                }
+                elseif (($newStatus === 'pending' || $newStatus === 'processing') && $previousStatus === null) {
+                    $balance->pending_balance += $totalAmount;
+                    $balance->total_earned += $totalAmount;
+                    $balance->total_delivery_fees_earned += $deliveryFeeShare;
+                    $balance->save();
+                }
+
+                // Update balance to be paid
+                $balance->balance_to_be_paid = $balance->available_balance + $balance->pending_balance;
+                $balance->save();
+
+                \Log::info("Final balance state", [
+                    'seller_id' => $sellerId,
                     'pending' => $balance->pending_balance,
                     'available' => $balance->available_balance,
-                    'total' => $balance->total_earned,
-                    'order_id' => $order->id,
-                    'order_amount' => $orderAmount,
-                    'new_status' => $newStatus,
-                    'previous_status' => $previousStatus
+                    'total' => $balance->total_earned
                 ]);
             }
             
@@ -99,10 +95,7 @@ class SellerBalanceService
             DB::rollback();
             \Log::error('Failed to update seller balance: ' . $e->getMessage(), [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'order_id' => $order->id,
-                'new_status' => $newStatus,
-                'previous_status' => $previousStatus
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }

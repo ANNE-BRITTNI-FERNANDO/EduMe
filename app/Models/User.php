@@ -34,6 +34,7 @@ class User extends Authenticatable
         'city',
         'province',
         'location',
+        'is_seller',
     ];
 
     /**
@@ -63,6 +64,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_seller' => 'boolean',
     ];
 
     /**

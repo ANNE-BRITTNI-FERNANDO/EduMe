@@ -25,8 +25,7 @@ class PayoutService
                         'available_balance' => 0,
                         'pending_balance' => 0,
                         'total_earned' => 0,
-                        'balance_to_be_paid' => 0,
-                        'total_delivery_fees_earned' => 0
+                        'balance_to_be_paid' => 0
                     ]
                 );
 

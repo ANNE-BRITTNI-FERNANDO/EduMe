@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Stripe\Stripe;
-use Stripe\PaymentIntent;
-use Exception;
-use App\Models\CartItem;
-use App\Models\SellerBalance;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\CartItem;
+use App\Models\SellerBalance;
 use App\Models\Bundle;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Stripe\Stripe;
+use Stripe\PaymentIntent;
+use Exception;
 
 class PaymentController extends Controller
 {
@@ -329,5 +329,95 @@ class PaymentController extends Controller
     {
         return redirect()->route('cart.index')
             ->with('error', 'Payment was cancelled.');
+    }
+
+    public function handleStripeWebhook(Request $request)
+    {
+        \Log::info('Stripe webhook received');
+        
+        try {
+            $payload = $request->all();
+            $event = null;
+
+            try {
+                $event = \Stripe\Event::constructFrom($payload);
+            } catch(\UnexpectedValueException $e) {
+                \Log::error('Invalid payload', ['error' => $e->getMessage()]);
+                return response()->json(['error' => 'Invalid payload'], 400);
+            }
+
+            if ($event->type === 'payment_intent.succeeded') {
+                $paymentIntent = $event->data->object;
+                
+                try {
+                    DB::beginTransaction();
+                    
+                    // Find the order by payment_id
+                    $order = Order::where('payment_id', $paymentIntent->id)->first();
+                    
+                    if (!$order) {
+                        throw new \Exception('Order not found for payment: ' . $paymentIntent->id);
+                    }
+                    
+                    \Log::info('Processing successful payment for order', [
+                        'order_id' => $order->id,
+                        'payment_id' => $paymentIntent->id
+                    ]);
+
+                    // Update order status
+                    $order->update([
+                        'payment_status' => 'completed',
+                        'status' => 'confirmed',
+                        'confirmed_at' => now(),
+                        'delivery_status' => 'processing'
+                    ]);
+
+                    // Mark items as sold
+                    foreach ($order->items as $orderItem) {
+                        $itemType = strtolower($orderItem->item_type);
+                        
+                        if ($itemType === 'product') {
+                            $updated = DB::table('products')
+                                ->where('id', $orderItem->item_id)
+                                ->where('is_sold', false) // Only update if not already sold
+                                ->update([
+                                    'is_sold' => true,
+                                    'quantity' => 0,
+                                    'updated_at' => now()
+                                ]);
+                                
+                            if (!$updated) {
+                                throw new \Exception("Failed to update product {$orderItem->item_id} - already sold");
+                            }
+                            
+                            \Log::info('Product marked as sold', [
+                                'product_id' => $orderItem->item_id,
+                                'order_id' => $order->id
+                            ]);
+                        }
+                    }
+
+                    DB::commit();
+                    \Log::info('Payment processed successfully', ['order_id' => $order->id]);
+                    
+                    return response()->json(['status' => 'success']);
+                } catch (\Exception $e) {
+                    DB::rollback();
+                    \Log::error('Failed to process payment', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    throw $e;
+                }
+            }
+
+            return response()->json(['status' => 'success']);
+        } catch (\Exception $e) {
+            \Log::error('Webhook handling failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

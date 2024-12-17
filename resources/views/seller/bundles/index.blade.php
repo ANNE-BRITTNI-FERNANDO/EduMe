@@ -36,22 +36,28 @@
                                             Price: LKR {{ number_format($bundle->price, 2) }}
                                         </p>
                                         <div class="mt-2">
-                                            @switch($bundle->status)
-                                                @case('approved')
-                                                    <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">
-                                                        Approved
-                                                    </span>
-                                                    @break
-                                                @case('rejected')
-                                                    <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">
-                                                        Rejected
-                                                    </span>
-                                                    @break
-                                                @default
-                                                    <span class="px-2 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800">
-                                                        Pending Review
-                                                    </span>
-                                            @endswitch
+                                            @if($bundle->is_sold)
+                                                <span class="px-2 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
+                                                    Sold
+                                                </span>
+                                            @else
+                                                @switch($bundle->status)
+                                                    @case('approved')
+                                                        <span class="px-2 py-1 text-sm rounded-full bg-green-100 text-green-800">
+                                                            Approved
+                                                        </span>
+                                                        @break
+                                                    @case('rejected')
+                                                        <span class="px-2 py-1 text-sm rounded-full bg-red-100 text-red-800">
+                                                            Rejected
+                                                        </span>
+                                                        @break
+                                                    @default
+                                                        <span class="px-2 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800">
+                                                            Pending Review
+                                                        </span>
+                                                @endswitch
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -68,7 +74,7 @@
                                     <h4 class="font-medium text-red-800 dark:text-red-400">Rejection Details</h4>
                                     @if($bundle->rejection_reason)
                                         <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                                            Reason: {{ $bundle->rejection_reason }}
+                                            Bundle Rejection Reason: {{ $bundle->rejection_reason }}
                                         </p>
                                     @endif
                                     @if($bundle->rejection_details)
@@ -76,6 +82,18 @@
                                             Additional Details: {{ $bundle->rejection_details }}
                                         </p>
                                     @endif
+
+                                    <!-- Product-specific rejection reasons -->
+                                    @foreach($bundle->categories as $category)
+                                        @if($category->rejection_reason)
+                                            <div class="mt-2 pl-4 border-l-2 border-red-300">
+                                                <p class="text-sm text-red-700 dark:text-red-300">
+                                                    <span class="font-medium">{{ $category->category }}</span>: 
+                                                    {{ $category->rejection_reason }}
+                                                </p>
+                                            </div>
+                                        @endif
+                                    @endforeach
                                 </div>
                             @endif
 

@@ -14,18 +14,16 @@ class SellerDashboardController extends Controller
 {
     public function index()
     {
-        $seller = auth()->user();
+        $user = auth()->user();
         
-        // Check if user has any products (this makes them a seller)
-        $hasProducts = Product::where('user_id', $seller->id)->exists();
-        
-        if (!$hasProducts) {
-            return redirect()->route('home')->with('error', 'You need to add products to become a seller.');
+        // Check if user is a seller
+        if (!$user->is_seller) {
+            return redirect()->route('home')->with('error', 'You need to be a seller to access this page.');
         }
 
         // Get seller's balance from SellerBalance model
         $sellerBalance = SellerBalance::firstOrCreate(
-            ['seller_id' => $seller->id],
+            ['seller_id' => $user->id],
             [
                 'available_balance' => 0,
                 'pending_balance' => 0,
@@ -40,21 +38,22 @@ class SellerDashboardController extends Controller
             ->whereHas('order', function($query) {
                 $query->whereNotIn('delivery_status', ['cancelled']);
             })
-            ->where('seller_id', $seller->id)
+            ->where('seller_id', $user->id)
             ->latest()
             ->take(5)
             ->get();
 
         // Get order statistics
-        $orderStats = OrderItem::where('seller_id', $seller->id)
+        $orderStats = OrderItem::where('seller_id', $user->id)
             ->whereHas('order', function($query) {
                 $query->whereNotIn('delivery_status', ['cancelled']);
             })
-            ->selectRaw('
-                COUNT(*) as total_orders,
-                COUNT(CASE WHEN orders.delivery_status = "pending" THEN 1 END) as pending_orders,
-                COUNT(CASE WHEN orders.delivery_status IN ("completed", "delivered", "confirmed") THEN 1 END) as completed_orders
-            ')
+            ->select(
+                DB::raw('COUNT(*) as total_orders'),
+                DB::raw('SUM(CASE WHEN orders.delivery_status = "pending" THEN 1 ELSE 0 END) as pending_orders'),
+                DB::raw('SUM(CASE WHEN orders.delivery_status = "processing" THEN 1 ELSE 0 END) as processing_orders'),
+                DB::raw('SUM(CASE WHEN orders.delivery_status = "completed" THEN 1 ELSE 0 END) as completed_orders')
+            )
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->first();
 

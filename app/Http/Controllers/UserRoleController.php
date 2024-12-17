@@ -10,17 +10,23 @@ class UserRoleController extends Controller
     public function setAsSeller()
     {
         $user = auth()->user();
-        // Since we're using 'customer' role for sellers, we'll just ensure it's set to 'customer'
+        
+        // Set the user as a seller
         DB::table('users')
             ->where('id', $user->id)
-            ->update(['role' => 'customer']);
+            ->update([
+                'is_seller' => true,
+                'role' => 'customer'
+            ]);
 
-        return redirect()->route('seller.dashboard');
+        return redirect('/seller/dashboard');
     }
 
     public function setAsBuyer()
     {
         $user = auth()->user();
+        
+        // Keep is_seller status but set role as customer
         DB::table('users')
             ->where('id', $user->id)
             ->update(['role' => 'customer']);

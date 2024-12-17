@@ -29,17 +29,17 @@ class FixBalances extends Command
                     SELECT 
                         COALESCE(SUM(CASE 
                             WHEN o.delivery_status IN ('pending', 'processing') 
-                            THEN oi.price * oi.quantity 
+                            THEN oi.price * oi.quantity
                             ELSE 0 
                         END), 0) as pending_balance,
                         COALESCE(SUM(CASE 
                             WHEN o.delivery_status IN ('completed', 'delivered', 'confirmed', 'delivered_to_warehouse', 'dispatched') 
-                            THEN oi.price * oi.quantity 
+                            THEN oi.price * oi.quantity
                             ELSE 0 
                         END), 0) as available_balance,
                         COALESCE(SUM(CASE 
                             WHEN o.delivery_status NOT IN ('cancelled') 
-                            THEN oi.price * oi.quantity 
+                            THEN oi.price * oi.quantity
                             ELSE 0 
                         END), 0) as total_earned,
                         COUNT(DISTINCT o.id) as total_orders,
