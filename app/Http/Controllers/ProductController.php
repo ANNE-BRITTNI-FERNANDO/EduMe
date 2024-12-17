@@ -368,16 +368,16 @@ class ProductController extends Controller
 
 
     public function destroy($id)
-{
-    // Find the product by its ID
-    $product = Product::findOrFail($id);
+    {
+        // Find the product by its ID
+        $product = Product::findOrFail($id);
 
-    // Delete the product
-    $product->delete();
+        // Delete the product
+        $product->delete();
 
-    // Flash a success message to the session
-    return redirect()->route('seller')->with('success', 'Product deleted successfully');
-}
+        // Redirect to the seller products index page
+        return redirect()->route('seller.products.index')->with('success', 'Product deleted successfully');
+    }
 
 // In ProductController.php
 public function show($id)
@@ -470,7 +470,7 @@ public function show($id)
 
     public function sellerProducts()
     {
-        $products = Product::where('user_id', auth()->id())->get();
+        $products = Product::where('user_id', auth()->id())->paginate(12);
         return view('seller.products.index', compact('products'));
     }
 

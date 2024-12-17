@@ -83,8 +83,8 @@
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                                     </tr>
                                 </thead>
@@ -93,24 +93,39 @@
                                         <tr>
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center">
-                                                    @if($item->item_type === 'product' && $item->item->image_path)
-                                                        <div class="flex-shrink-0 h-10 w-10 mr-3">
-                                                            <img class="h-10 w-10 rounded object-cover" src="{{ Storage::url($item->item->image_path) }}" alt="{{ $item->item->product_name }}">
+                                                    @if($item->item_type === 'App\\Models\\Product' && $item->item->image_path)
+                                                        <img src="{{ asset('storage/' . $item->item->image_path) }}" alt="Product Image" class="w-16 h-16 object-cover rounded">
+                                                    @else
+                                                        <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                                                            <span class="text-gray-500">No Image</span>
                                                         </div>
                                                     @endif
-                                                    <div>
-                                                        @if($item->item_type === 'product')
-                                                            {{ $item->item->product_name }}
+                                                    <div class="ml-4">
+                                                        @if($item->item_type === 'App\\Models\\Product')
+                                                            <div class="text-sm font-medium text-gray-900">{{ $item->item->product_name }}</div>
+                                                            <div class="text-sm text-gray-500">Product</div>
+                                                        @elseif($item->item_type === 'App\\Models\\Bundle')
+                                                            <div class="text-sm font-medium text-gray-900">{{ $item->item->bundle_name }}</div>
+                                                            <div class="text-sm text-gray-500">Bundle</div>
                                                         @else
-                                                            {{ $item->item->bundle_name }}
+                                                            <div class="text-sm font-medium text-gray-900">Unknown Item</div>
                                                         @endif
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4">{{ $item->seller->name }}</td>
-                                            <td class="px-6 py-4">₹{{ number_format($item->price, 2) }}</td>
-                                            <td class="px-6 py-4">{{ $item->quantity }}</td>
-                                            <td class="px-6 py-4">₹{{ number_format($item->price * $item->quantity, 2) }}</td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-900">{{ $item->seller->name }}</div>
+                                                <div class="text-sm text-gray-500">Seller</div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-900">x{{ $item->quantity }}</div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-900">LKR {{ number_format($item->price) }}</div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-900">LKR {{ number_format($item->price * $item->quantity) }}</div>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>

@@ -4,30 +4,32 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PayoutRequest;
+use App\Models\SellerBalance;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PayoutController extends Controller
 {
     public function index()
     {
-        $pendingPayouts = PayoutRequest::with(['user'])
+        $pendingPayouts = PayoutRequest::with(['user', 'seller', 'processor'])
             ->where('status', PayoutRequest::STATUS_PENDING)
             ->latest()
             ->paginate(10, ['*'], 'pending_page');
 
-        $approvedPayouts = PayoutRequest::with(['user'])
+        $approvedPayouts = PayoutRequest::with(['user', 'seller', 'processor'])
             ->where('status', PayoutRequest::STATUS_APPROVED)
             ->latest()
             ->paginate(10, ['*'], 'approved_page');
 
-        $completedPayouts = PayoutRequest::with(['user'])
+        $completedPayouts = PayoutRequest::with(['user', 'seller', 'processor'])
             ->where('status', PayoutRequest::STATUS_COMPLETED)
             ->latest()
             ->paginate(10, ['*'], 'completed_page');
 
-        $rejectedPayouts = PayoutRequest::with(['user'])
+        $rejectedPayouts = PayoutRequest::with(['user', 'seller', 'processor'])
             ->where('status', PayoutRequest::STATUS_REJECTED)
             ->latest()
             ->paginate(10, ['*'], 'rejected_page');
@@ -35,19 +37,20 @@ class PayoutController extends Controller
         $stats = [
             'pending_count' => PayoutRequest::where('status', PayoutRequest::STATUS_PENDING)->count(),
             'pending_amount' => PayoutRequest::where('status', PayoutRequest::STATUS_PENDING)->sum('amount'),
-            'approved_count' => PayoutRequest::where('status', PayoutRequest::STATUS_APPROVED)->count(),
-            'approved_amount' => PayoutRequest::where('status', PayoutRequest::STATUS_APPROVED)->sum('amount'),
             'completed_count' => PayoutRequest::where('status', PayoutRequest::STATUS_COMPLETED)->count(),
             'completed_amount' => PayoutRequest::where('status', PayoutRequest::STATUS_COMPLETED)->sum('amount'),
+            'approved_count' => PayoutRequest::where('status', PayoutRequest::STATUS_APPROVED)->count(),
+            'approved_amount' => PayoutRequest::where('status', PayoutRequest::STATUS_APPROVED)->sum('amount'),
         ];
 
         return view('admin.payouts.index', compact('pendingPayouts', 'approvedPayouts', 'completedPayouts', 'rejectedPayouts', 'stats'));
     }
 
-    public function show(PayoutRequest $payoutRequest)
+    public function show(PayoutRequest $payout)
     {
-        $payoutRequest->load('user');
-        return view('admin.payouts.show', compact('payoutRequest'));
+        return view('admin.payouts.show', [
+            'payout' => $payout->load('user')
+        ]);
     }
 
     public function history(Request $request)
@@ -69,69 +72,101 @@ class PayoutController extends Controller
         return view('admin.payouts.history', compact('payouts'));
     }
 
-    public function approve(PayoutRequest $payoutRequest)
+    public function approve(PayoutRequest $payout)
     {
+        if ($payout->status !== 'pending') {
+            return back()->with('error', 'This payout request has already been processed.');
+        }
+
+        DB::beginTransaction();
         try {
-            DB::transaction(function () use ($payoutRequest) {
-                // Check if payout is pending
-                if ($payoutRequest->status !== PayoutRequest::STATUS_PENDING) {
-                    throw new \Exception('Only pending requests can be approved');
-                }
+            // Update payout status to approved (not completed)
+            $payout->update([
+                'status' => 'approved',
+                'processed_at' => now()
+            ]);
 
-                // Update payout request
-                $payoutRequest->update([
-                    'status' => PayoutRequest::STATUS_APPROVED,
-                    'processed_at' => now(),
-                    'processed_by' => auth()->id()
-                ]);
-
-                // Send notification to user
-                $payoutRequest->user->notify(new \App\Notifications\PayoutApproved($payoutRequest));
-            });
-
-            return back()->with('success', 'Payout request approved successfully');
+            DB::commit();
+            return redirect()->back()->with('success', 'Payout request approved successfully.');
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            DB::rollBack();
+            \Log::error('Payout approval failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to approve payout request.');
         }
     }
 
-    public function complete(PayoutRequest $payoutRequest)
+    public function complete(Request $request, PayoutRequest $payoutRequest)
     {
+        $request->validate([
+            'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'transaction_id' => 'required|string|max:255'
+        ]);
+
         try {
-            DB::transaction(function () use ($payoutRequest) {
+            DB::transaction(function () use ($payoutRequest, $request) {
+                // Store the receipt
+                if ($request->hasFile('receipt')) {
+                    $path = $request->file('receipt')->store('payout-receipts', 'public');
+                    $payoutRequest->receipt_path = $path;
+                    $payoutRequest->receipt_uploaded_at = now();
+                }
+
+                // Update status to completed with all details
                 $payoutRequest->update([
                     'status' => 'completed',
                     'completed_at' => now(),
                     'completed_by' => auth()->id(),
+                    'transaction_id' => $request->transaction_id,
+                    'processed_at' => now(),
+                    'processed_by' => auth()->id()
                 ]);
             });
 
-            return redirect()->back()->with('success', 'Payout has been marked as completed.');
+            return redirect()->back()->with('success', 'Payout marked as completed and receipt uploaded successfully.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to complete payout.');
+            \Log::error('Failed to complete payout: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to complete payout: ' . $e->getMessage());
         }
     }
 
-    public function reject(Request $request, PayoutRequest $payoutRequest)
+    public function reject(Request $request, PayoutRequest $payout)
     {
+        $request->validate([
+            'rejection_reason' => 'required|string|max:255'
+        ]);
+
+        if ($payout->status !== 'pending') {
+            return back()->with('error', 'This payout request has already been processed.');
+        }
+
+        DB::beginTransaction();
         try {
-            DB::transaction(function () use ($payoutRequest, $request) {
-                $payoutRequest->update([
-                    'status' => 'rejected',
-                    'rejected_at' => now(),
-                    'rejected_by' => auth()->id(),
-                    'rejection_reason' => $request->input('rejection_reason'),
-                ]);
+            // Update payout status to rejected with reason
+            $payout->update([
+                'status' => 'rejected',
+                'rejection_reason' => $request->rejection_reason,
+                'processed_at' => now()
+            ]);
 
-                // Revert the payout amount back to the user's available balance
-                $sellerBalance = $payoutRequest->user->sellerBalance;
-                $sellerBalance->pending_balance -= $payoutRequest->amount;
-                $sellerBalance->available_balance += $payoutRequest->amount;
-                $sellerBalance->save();
-            });
+            // Get current available balance
+            $currentBalance = DB::selectOne("
+                SELECT available_balance 
+                FROM seller_balances 
+                WHERE seller_id = ?
+            ", [$payout->seller_id])->available_balance;
 
-            return redirect()->back()->with('success', 'Payout request has been rejected.');
+            // Restore the amount to available balance
+            DB::statement("
+                UPDATE seller_balances 
+                SET available_balance = ? 
+                WHERE seller_id = ?
+            ", [$currentBalance + $payout->amount, $payout->seller_id]);
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Payout request rejected successfully.');
         } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Payout rejection failed: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to reject payout request.');
         }
     }
@@ -158,40 +193,34 @@ class PayoutController extends Controller
         return view('admin.payouts.seller-balances', compact('sellers', 'totalStats'));
     }
 
-    public function uploadReceipt(Request $request, PayoutRequest $payoutRequest)
+    public function uploadReceipt(Request $request, PayoutRequest $payout)
     {
         $request->validate([
-            'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'transaction_id' => 'required|string|max:255'
+            'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048'
         ]);
 
-        try {
-            DB::transaction(function () use ($request, $payoutRequest) {
-                // Check if payout is in approved status
-                if ($payoutRequest->status !== PayoutRequest::STATUS_APPROVED) {
-                    throw new \Exception('Only approved payouts can have receipts uploaded');
-                }
-
-                // Store the receipt
-                $receiptPath = $request->file('receipt')->store('payout-receipts', 'public');
-
-                // Update payout request
-                $payoutRequest->update([
-                    'status' => PayoutRequest::STATUS_COMPLETED,
-                    'receipt_path' => $receiptPath,
-                    'receipt_uploaded_at' => now(),
-                    'transaction_id' => $request->transaction_id,
-                    'completed_at' => now(),
-                    'completed_by' => auth()->id()
-                ]);
-
-                // Send notification to user
-                $payoutRequest->user->notify(new \App\Notifications\PayoutCompleted($payoutRequest));
-            });
-
-            return back()->with('success', 'Receipt uploaded and payout marked as completed');
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        if ($payout->status !== 'approved' && $payout->status !== 'completed') {
+            return back()->with('error', 'Can only upload receipt for approved or completed payouts.');
         }
+
+        if ($request->hasFile('receipt')) {
+            // Delete old receipt if exists
+            if ($payout->receipt_path) {
+                Storage::delete($payout->receipt_path);
+            }
+
+            // Store new receipt
+            $path = $request->file('receipt')->store('receipts', 'public');
+            
+            $payout->update([
+                'receipt_path' => $path,
+                'status' => 'completed',
+                'processed_at' => now()
+            ]);
+
+            return back()->with('success', 'Receipt uploaded successfully.');
+        }
+
+        return back()->with('error', 'No receipt file provided.');
     }
 }

@@ -14,7 +14,7 @@
                     <div class="p-6">
                         <div class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Earnings</div>
                         <div class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ number_format($totalEarned, 2) }}
+                            LKR {{ number_format($sellerBalance->total_earned, 2) }}
                         </div>
                     </div>
                 </div>
@@ -24,7 +24,7 @@
                     <div class="p-6">
                         <div class="text-gray-500 dark:text-gray-400 text-sm font-medium">Available Balance</div>
                         <div class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ number_format($availableBalance, 2) }}
+                            LKR {{ number_format($sellerBalance->available_balance, 2) }}
                         </div>
                     </div>
                 </div>
@@ -34,17 +34,17 @@
                     <div class="p-6">
                         <div class="text-gray-500 dark:text-gray-400 text-sm font-medium">Pending Balance</div>
                         <div class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ number_format($pendingBalance, 2) }}
+                            LKR {{ number_format($sellerBalance->pending_balance, 2) }}
                         </div>
                     </div>
                 </div>
 
-                <!-- Total Products -->
+                <!-- Total Orders -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6">
-                        <div class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Products</div>
+                        <div class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Orders</div>
                         <div class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ $totalProducts }}
+                            {{ $orderStats->total_orders }}
                         </div>
                     </div>
                 </div>
@@ -142,66 +142,49 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    @foreach($recentOrders as $order)
+                                    @foreach($recentOrders as $orderItem)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                #{{ $order->id }}
+                                                #{{ $orderItem->order->id }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 dark:text-gray-100">{{ $order->user->name }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $order->user->email }}</div>
+                                                <div class="text-sm text-gray-900 dark:text-gray-100">{{ $orderItem->order->user->name }}</div>
+                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $orderItem->order->user->email }}</div>
                                             </td>
                                             <td class="px-6 py-4">
                                                 <div class="flex flex-col space-y-2">
-                                                    @foreach($order->items->where('seller_id', auth()->id()) as $item)
-                                                        <div class="flex items-center space-x-2">
-                                                            @php
-                                                                $product = $item->item;
-                                                                $imageUrl = null;
-                                                                $itemName = 'Unknown Product';
-                                                                
-                                                                if ($product) {
-                                                                    if ($product instanceof \App\Models\Product) {
-                                                                        $imageUrl = $product->image_path ? Storage::url($product->image_path) : null;
-                                                                        $itemName = $product->product_name;
-                                                                    } elseif ($product instanceof \App\Models\Bundle) {
-                                                                        $imageUrl = $product->bundle_image ? Storage::url($product->bundle_image) : null;
-                                                                        $itemName = $product->bundle_name . ' (Bundle)';
-                                                                    }
+                                                    <div class="text-sm text-gray-900 dark:text-gray-100">
+                                                        @php
+                                                            $itemName = 'Unknown Item';
+                                                            if ($orderItem->item) {
+                                                                if ($orderItem->item_type === 'App\\Models\\Product') {
+                                                                    $itemName = $orderItem->item->product_name;
+                                                                } elseif ($orderItem->item_type === 'App\\Models\\Bundle') {
+                                                                    $itemName = $orderItem->item->bundle_name;
                                                                 }
-                                                            @endphp
-                                                            
-                                                            @if($imageUrl)
-                                                                <img src="{{ $imageUrl }}" alt="{{ $itemName }}" class="w-8 h-8 object-cover rounded">
-                                                            @else
-                                                                <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                                                                    <span class="text-gray-500 dark:text-gray-400 text-xs">No Image</span>
-                                                                </div>
-                                                            @endif
-                                                            
-                                                            <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                                {{ $itemName }} (x{{ $item->quantity }})
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
+                                                            }
+                                                        @endphp
+                                                        {{ $itemName }}
+                                                    </div>
+                                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                        Quantity: {{ $orderItem->quantity }}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                LKR {{ number_format($order->items->where('seller_id', auth()->id())->sum(function($item) { 
-                                                    return $item->price * $item->quantity; 
-                                                }), 2) }}
+                                                LKR {{ number_format($orderItem->price * $orderItem->quantity, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                    @if($order->status === 'completed') bg-green-100 text-green-800
-                                                    @elseif($order->status === 'processing') bg-yellow-100 text-yellow-800
-                                                    @elseif($order->status === 'cancelled') bg-red-100 text-red-800
+                                                    @if($orderItem->order->delivery_status === 'completed') bg-green-100 text-green-800
+                                                    @elseif($orderItem->order->delivery_status === 'processing') bg-yellow-100 text-yellow-800
+                                                    @elseif($orderItem->order->delivery_status === 'cancelled') bg-red-100 text-red-800
                                                     @else bg-gray-100 text-gray-800 @endif">
-                                                    {{ ucfirst($order->status) }}
+                                                    {{ ucfirst($orderItem->order->delivery_status) }}
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                <a href="{{ route('seller.orders.show', $order) }}" 
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <a href="{{ route('seller.orders.show', $orderItem->order->id) }}" 
                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
                                                     View Details
                                                 </a>

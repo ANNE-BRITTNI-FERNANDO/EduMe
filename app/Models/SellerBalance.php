@@ -2,110 +2,132 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use Log;
 
 class SellerBalance extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'seller_id',
         'available_balance',
+        'pending_balance',
         'total_earned',
         'balance_to_be_paid',
-        'pending_balance',
         'total_delivery_fees_earned'
     ];
 
     protected $casts = [
         'available_balance' => 'decimal:2',
+        'pending_balance' => 'decimal:2',
         'total_earned' => 'decimal:2',
         'balance_to_be_paid' => 'decimal:2',
-        'pending_balance' => 'decimal:2',
         'total_delivery_fees_earned' => 'decimal:2',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'deleted_at' => 'datetime'
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($balance) {
+            $balance->available_balance = $balance->available_balance ?? 0;
+            $balance->pending_balance = $balance->pending_balance ?? 0;
+            $balance->total_earned = $balance->total_earned ?? 0;
+            $balance->balance_to_be_paid = $balance->balance_to_be_paid ?? 0;
+            $balance->total_delivery_fees_earned = $balance->total_delivery_fees_earned ?? 0;
+        });
+
+        static::saving(function ($balance) {
+            // Ensure balance_to_be_paid is always the sum of available and pending
+            $balance->balance_to_be_paid = $balance->available_balance + $balance->pending_balance;
+        });
+    }
 
     public function seller()
     {
         return $this->belongsTo(User::class, 'seller_id');
     }
 
-    public function addEarnings($amount, $deliveryFeeShare = 0)
+    public function addToAvailableBalance($amount)
     {
-        return DB::transaction(function () use ($amount, $deliveryFeeShare) {
-            $this->available_balance += $amount;
-            $this->total_earned += $amount;
-            $this->total_delivery_fees_earned += $deliveryFeeShare;
-            $this->save();
-            
+        return DB::transaction(function () use ($amount) {
+            return DB::statement("
+                UPDATE seller_balances 
+                SET available_balance = available_balance + ?,
+                    total_earned = total_earned + ?,
+                    balance_to_be_paid = available_balance + pending_balance + ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $amount, $this->seller_id]);
+        });
+    }
+
+    public function addToPendingBalance($amount)
+    {
+        return DB::transaction(function () use ($amount) {
+            return DB::statement("
+                UPDATE seller_balances 
+                SET pending_balance = pending_balance + ?,
+                    total_earned = total_earned + ?,
+                    balance_to_be_paid = available_balance + pending_balance + ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $amount, $this->seller_id]);
+        });
+    }
+
+    public function movePendingToAvailable($amount)
+    {
+        return DB::transaction(function () use ($amount) {
+            if ($this->pending_balance < $amount) {
+                throw new \Exception('Insufficient pending balance');
+            }
+
+            DB::statement("
+                UPDATE seller_balances 
+                SET pending_balance = pending_balance - ?,
+                    available_balance = available_balance + ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $this->seller_id]);
+
+            $this->refresh();
             return true;
         });
     }
 
-    public function moveToPending($amount)
+    public function deductFromPendingBalance($amount)
+    {
+        return DB::transaction(function () use ($amount) {
+            if ($this->pending_balance < $amount) {
+                throw new \Exception('Insufficient pending balance');
+            }
+
+            return DB::statement("
+                UPDATE seller_balances 
+                SET pending_balance = pending_balance - ?,
+                    total_earned = total_earned - ?,
+                    balance_to_be_paid = balance_to_be_paid - ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $amount, $this->seller_id]);
+        });
+    }
+
+    public function deductFromAvailableBalance($amount)
     {
         return DB::transaction(function () use ($amount) {
             if ($this->available_balance < $amount) {
                 throw new \Exception('Insufficient available balance');
             }
 
-            $this->available_balance -= $amount;
-            $this->pending_balance += $amount;
-            $this->balance_to_be_paid += $amount;
-            $this->save();
-
-            return true;
-        });
-    }
-
-    public function approvePayout($amount)
-    {
-        return DB::transaction(function () use ($amount) {
-            if ($this->pending_balance < $amount) {
-                throw new \Exception('Insufficient pending balance');
-            }
-
-            $this->pending_balance -= $amount;
-            $this->balance_to_be_paid -= $amount;
-            $this->save();
-
-            return true;
-        });
-    }
-
-    public function rejectPayout($amount)
-    {
-        return DB::transaction(function () use ($amount) {
-            if ($this->pending_balance < $amount) {
-                throw new \Exception('Insufficient pending balance');
-            }
-
-            $this->pending_balance -= $amount;
-            $this->available_balance += $amount;
-            $this->balance_to_be_paid -= $amount;
-            $this->save();
-
-            return true;
-        });
-    }
-
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($balance) {
-            // Ensure all balances start at 0 if not set
-            $balance->available_balance = $balance->available_balance ?? 0;
-            $balance->total_earned = $balance->total_earned ?? 0;
-            $balance->balance_to_be_paid = $balance->balance_to_be_paid ?? 0;
-            $balance->pending_balance = $balance->pending_balance ?? 0;
-            $balance->total_delivery_fees_earned = $balance->total_delivery_fees_earned ?? 0;
+            return DB::statement("
+                UPDATE seller_balances 
+                SET available_balance = available_balance - ?,
+                    balance_to_be_paid = balance_to_be_paid - ?
+                WHERE seller_id = ?
+            ", [$amount, $amount, $this->seller_id]);
         });
     }
 }

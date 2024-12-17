@@ -180,6 +180,65 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('productlisting')" :active="request()->routeIs('productlisting')">
+                {{ __('Products') }}
+            </x-responsive-nav-link>
+
+            @auth
+                <!-- Orders Link for all users -->
+                <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                    {{ __('Orders') }}
+                </x-responsive-nav-link>
+
+                @if(auth()->user()->role === 'seller')
+                    <x-responsive-nav-link :href="route('seller')" :active="request()->routeIs('seller')">
+                        {{ __('Seller Dashboard') }}
+                    </x-responsive-nav-link>
+
+                    <x-responsive-nav-link :href="route('seller.orders.index')" :active="request()->routeIs('seller.orders.*')">
+                        {{ __('Seller Orders') }}
+                        @if($unreadOrderCount = auth()->user()->unreadNotifications()->where('type', 'App\Notifications\NewOrderNotification')->count())
+                            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                {{ $unreadOrderCount }}
+                            </span>
+                        @endif
+                    </x-responsive-nav-link>
+                @endif
+
+                @if(auth()->user()->role === 'admin')
+                    <x-responsive-nav-link :href="route('admin.orders.index')" :active="request()->routeIs('admin.orders.*')">
+                        {{ __('Admin Orders') }}
+                    </x-responsive-nav-link>
+                @endif
+
+                @if(!auth()->user()->role || auth()->user()->role === 'buyer')
+                    <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.index') && !request()->query('view')">
+                        {{ __('My Orders') }}
+                    </x-responsive-nav-link>
+                @endif
+
+                <x-responsive-nav-link :href="route('chat.index')" :active="request()->routeIs('chat.*')">
+                    {{ __('Messages') }}
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link :href="route('cart.index')" :active="request()->routeIs('cart.index')">
+                    {{ __('Cart') }}
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link :href="route('notifications.index')" :active="request()->routeIs('notifications.index')" class="relative inline-flex">
+                    {{ __('Notifications') }}
+                    @if(auth()->user()->unreadNotifications->count() > 0)
+                        <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {{ auth()->user()->unreadNotifications->count() }}
+                        </span>
+                    @endif
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link :href="route('payments.manage')" :active="request()->routeIs('payments.manage')">
+                    {{ __('Payments') }}
+                </x-responsive-nav-link>
+            @endauth
         </div>
 
         <!-- Responsive Settings Options -->

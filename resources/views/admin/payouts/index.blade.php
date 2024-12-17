@@ -33,7 +33,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-800 dark:text-blue-100 text-sm font-medium">Pending Amount</p>
-                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">${{ number_format($stats['pending_amount'], 2) }}</p>
+                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">LKR {{ number_format($stats['pending_amount'], 2) }}</p>
                         </div>
                         <div class="text-blue-500">
                             <i class="fas fa-dollar-sign fa-2x"></i>
@@ -59,7 +59,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-purple-800 dark:text-purple-100 text-sm font-medium">Total Paid</p>
-                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">${{ number_format($stats['completed_amount'], 2) }}</p>
+                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">LKR {{ number_format($stats['completed_amount'], 2) }}</p>
                         </div>
                         <div class="text-purple-500">
                             <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -116,7 +116,7 @@
                                             <div>{{ $payout->user->name }}</div>
                                             <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">LKR {{ number_format($payout->amount, 2) }}</td>
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
                                             <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
                                                 View Details
@@ -164,7 +164,7 @@
                                             <div>{{ $payout->user->name }}</div>
                                             <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">LKR {{ number_format($payout->amount, 2) }}</td>
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
                                             <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
                                                 View Details
@@ -237,14 +237,14 @@
                                             <div>{{ $payout->user->name }}</div>
                                             <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">LKR {{ number_format($payout->amount, 2) }}</td>
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
                                             <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
                                                 View Details
                                             </button>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->transaction_id }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->completed_at?->format('M d, Y H:i A') }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->completed_at ? $payout->completed_at->format('M d, Y H:i A') : '' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
                                             @if($payout->receipt_path)
                                                 <a href="{{ Storage::url($payout->receipt_path) }}" 
@@ -273,12 +273,27 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Request ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Bank Details</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Reason</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Request ID
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            User
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Amount
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Reason
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Date
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -289,14 +304,29 @@
                                             <div>{{ $payout->user->name }}</div>
                                             <div class="text-sm text-gray-500">{{ $payout->user->email }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${{ number_format($payout->amount, 2) }}</td>
-                                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">LKR {{ number_format($payout->amount, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                @if($payout->status === 'rejected') bg-red-100 text-red-800
+                                                @endif">
+                                                {{ ucfirst($payout->status) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            @if($payout->status === 'rejected' && $payout->rejection_reason)
+                                                <span class="text-red-600">{{ $payout->rejection_reason }}</span>
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ $payout->created_at->format('M d, Y') }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button onclick="showBankDetails('{{ $payout->bank_name }}', '{{ $payout->account_number }}', '{{ $payout->account_holder_name }}')" class="text-blue-600 hover:text-blue-800">
                                                 View Details
                                             </button>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->created_at->format('M d, Y') }}</td>
-                                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-300">{{ $payout->rejection_reason }}</td>
                                     </tr>
                                     @endforeach
                                 </tbody>

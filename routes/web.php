@@ -4,6 +4,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\AdminBundleController;
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Seller\BundleController;
 use App\Http\Controllers\Seller\SellerDashboardController;
 use App\Http\Controllers\Seller\SellerOrderController;
@@ -61,44 +62,14 @@ Route::middleware(['auth'])->group(function () {
     // Seller routes
     Route::prefix('seller')->name('seller.')->group(function () {
         Route::get('/products', [ProductController::class, 'sellerProducts'])->name('products.index');
-        Route::get('/dashboard', function() {
-            $user = auth()->user();
-            $products = $user->products()->with('user')->get();
-            
-            // Calculate total earned from completed orders (excluding delivery fee)
-            $totalEarned = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.seller_id', $user->id)
-                ->where('orders.delivery_status', 'completed')
-                ->sum(\DB::raw('order_items.price * order_items.quantity'));
-            
-            // Get available balance (excluding delivery fee)
-            $availableBalance = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.seller_id', $user->id)
-                ->where('orders.delivery_status', 'completed')
-                ->sum(\DB::raw('order_items.price * order_items.quantity'));
-            
-            // Get pending balance from orders not yet completed (excluding delivery fee)
-            $pendingBalance = \App\Models\Order::join('order_items', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.seller_id', $user->id)
-                ->whereIn('orders.delivery_status', ['pending', 'processing', 'delivered_to_warehouse', 'dispatched'])
-                ->sum(\DB::raw('order_items.price * order_items.quantity'));
-            
-            // Total products
-            $totalProducts = $products->count();
-            
-            $recentOrders = \App\Models\Order::whereHas('items', function($query) use ($user) {
-                $query->where('seller_id', $user->id);
-            })->with(['items' => function($query) {
-                $query->with('item');
-            }, 'user'])->latest()->take(5)->get();
-            
-            return view('seller.dashboard', compact('products', 'totalEarned', 'availableBalance', 'pendingBalance', 'totalProducts', 'recentOrders'));
-        })->name('dashboard');
+        Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{order}/status', [SellerOrderController::class, 'updateDeliveryStatus'])->name('orders.update.status');
-        Route::get('/earnings', [SellerEarningsController::class, 'index'])->name('earnings');
+        Route::get('/earnings', [SellerEarningsController::class, 'index'])->name('earnings.index');
         Route::post('/earnings/request-payout', [SellerEarningsController::class, 'requestPayout'])->name('earnings.request-payout');
+        Route::post('/earnings/toggle-details', [SellerEarningsController::class, 'toggleDetails'])->name('earnings.toggle-details');
+        Route::get('/earnings/download-receipt/{payout}', [SellerEarningsController::class, 'downloadReceipt'])->name('earnings.download-receipt');
         Route::get('/bundles', [BundleController::class, 'index'])->name('bundles.index');
         Route::get('/bundles/create', [BundleController::class, 'create'])->name('bundles.create');
         Route::post('/bundles', [BundleController::class, 'store'])->name('bundles.store');
@@ -119,10 +90,21 @@ Route::middleware(['auth'])->group(function () {
             }
             return app(AdminDashboardController::class)->index();
         })->name('dashboard');
-        Route::get('/orders', [OrderController::class, 'adminIndex'])->name('orders.index');
+
+        // Orders
+        Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
+        Route::post('/orders/{order}/update-status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
+
+        // Payouts
+        Route::get('/payouts', [AdminPayoutController::class, 'index'])->name('payouts.index');
+        Route::get('/payouts/{payout}', [AdminPayoutController::class, 'show'])->name('payouts.show');
+        Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
+        Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
+        Route::post('/payouts/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('payouts.upload-receipt');
+
         Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
         Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
-        Route::get('/approved', [ProductController::class, 'approvedProducts'])->name('products.approved');
         Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
         Route::prefix('payouts')->name('payouts.')->group(function () {
             Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
@@ -369,6 +351,8 @@ Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function (
     Route::post('/orders/{order}/status', [SellerOrderController::class, 'updateDeliveryStatus'])->name('orders.update.status');
     // Earnings
     Route::get('/earnings', [SellerEarningsController::class, 'index'])->name('earnings.index');
+    Route::post('/earnings/toggle-details', [SellerEarningsController::class, 'toggleDetails'])->name('earnings.toggle-details');
+    Route::get('/earnings/download-receipt/{payout}', [SellerEarningsController::class, 'downloadReceipt'])->name('earnings.download-receipt');
 });
 
 // Warehouse Routes

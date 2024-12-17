@@ -9,29 +9,38 @@ use Illuminate\Support\Facades\DB;
 
 class PayoutService
 {
-public function updateSellerBalances(Order $order)
-{
-    $sellerBalance = SellerBalance::firstOrCreate(
-        ['seller_id' => $order->seller_id],
-        [
-            'available_balance' => 0,
-            'pending_balance' => 0,
-            'total_earned' => 0,
-            'balance_to_be_paid' => 0,
-            'total_delivery_fees_earned' => 0
-        ]
-    );
+    public function updateSellerBalances(Order $order)
+    {
+        DB::transaction(function () use ($order) {
+            // Get all unique sellers from order items
+            $sellerAmounts = $order->items()
+                ->select('seller_id', DB::raw('SUM(price * quantity) as total_amount'))
+                ->groupBy('seller_id')
+                ->get();
 
-    $orderAmount = $order->amount;
-    
-    // Update balances
-    $sellerBalance->pending_balance += $orderAmount;
-    $sellerBalance->total_earned += $orderAmount;
-    $sellerBalance->balance_to_be_paid = $sellerBalance->pending_balance + $sellerBalance->available_balance;
-    
-    // Save changes
-    $sellerBalance->save();
-}
+            foreach ($sellerAmounts as $sellerAmount) {
+                $sellerBalance = SellerBalance::firstOrCreate(
+                    ['seller_id' => $sellerAmount->seller_id],
+                    [
+                        'available_balance' => 0,
+                        'pending_balance' => 0,
+                        'total_earned' => 0,
+                        'balance_to_be_paid' => 0,
+                        'total_delivery_fees_earned' => 0
+                    ]
+                );
+
+                // Add to pending balance initially
+                $sellerBalance->increment('pending_balance', $sellerAmount->total_amount);
+                $sellerBalance->increment('total_earned', $sellerAmount->total_amount);
+
+                // Update balance to be paid
+                $sellerBalance->update([
+                    'balance_to_be_paid' => DB::raw('pending_balance + available_balance')
+                ]);
+            }
+        });
+    }
 
     private function updateBalanceOnPaymentComplete(Order $order)
     {

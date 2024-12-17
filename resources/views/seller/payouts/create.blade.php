@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.seller')
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
@@ -29,8 +29,8 @@
 
                 <div class="mb-4">
                     <label for="bank_name" class="block text-sm font-medium text-gray-700">Bank Name</label>
-                    <input type="text" name="bank_name" id="bank_name"
-                        class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    <input type="text" name="bank_name" id="bank_name" 
+                        class="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         required>
                     @error('bank_name')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -39,18 +39,18 @@
 
                 <div class="mb-4">
                     <label for="account_number" class="block text-sm font-medium text-gray-700">Account Number</label>
-                    <input type="text" name="account_number" id="account_number"
-                        class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    <input type="text" name="account_number" id="account_number" 
+                        class="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         required>
                     @error('account_number')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
 
-                <div class="mb-6">
+                <div class="mb-4">
                     <label for="account_holder_name" class="block text-sm font-medium text-gray-700">Account Holder Name</label>
-                    <input type="text" name="account_holder_name" id="account_holder_name"
-                        class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    <input type="text" name="account_holder_name" id="account_holder_name" 
+                        class="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         required>
                     @error('account_holder_name')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

@@ -37,17 +37,17 @@ class PayoutController extends Controller
             'account_number' => ['required', 'string'],
             'account_holder_name' => ['required', 'string'],
         ]);
-
+    
         $sellerBalance = auth()->user()->sellerBalance;
-
+    
         if ($sellerBalance->available_balance < $request->amount) {
             return back()->with('error', 'Insufficient available balance');
         }
-
+    
         DB::transaction(function () use ($request, $sellerBalance) {
             // Move amount to pending
             $sellerBalance->moveToPending($request->amount);
-
+    
             // Create payout request
             PayoutRequest::create([
                 'user_id' => auth()->id(),
@@ -63,7 +63,7 @@ class PayoutController extends Controller
                 ]),
             ]);
         });
-
+    
         return redirect()->route('seller.payouts.index')
             ->with('success', 'Payout request submitted successfully');
     }
@@ -89,6 +89,10 @@ class PayoutController extends Controller
                     'approved_at' => now(),
                     'processed_by' => auth()->id()
                 ]);
+
+                // Approve the payout in SellerBalance
+                $sellerBalance = $payoutRequest->user->sellerBalance;
+                $sellerBalance->approvePayout($payoutRequest->amount);
 
                 // Notify user
                 $payoutRequest->user->notify(new PayoutApproved($payoutRequest));

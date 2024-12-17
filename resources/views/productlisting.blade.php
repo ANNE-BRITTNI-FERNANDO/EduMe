@@ -132,8 +132,8 @@
                                         <div class="relative">
                                             <img src="{{ Storage::url($product->image_path) }}" alt="{{ $product->product_name }}" class="w-full h-48 object-cover">
                                             @if($product->is_sold)
-                                                <div class="absolute top-0 right-0 bg-red-500 text-white px-2 py-1 m-2 rounded">
-                                                    Sold Out
+                                                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                                    <span class="text-white text-lg font-bold px-4 py-2 bg-red-500 rounded-lg">SOLD OUT</span>
                                                 </div>
                                             @endif
                                         </div>

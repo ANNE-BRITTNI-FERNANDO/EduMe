@@ -8,9 +8,66 @@ use Illuminate\Http\Request;
 use App\Notifications\OrderStatusUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Services\SellerBalanceService;
 
 class OrderController extends Controller
 {
+    protected $sellerBalanceService;
+
+    public function __construct(SellerBalanceService $sellerBalanceService)
+    {
+        $this->sellerBalanceService = $sellerBalanceService;
+    }
+
+    public function index()
+    {
+        $orders = Order::whereHas('items', function($query) {
+            $query->where('seller_id', auth()->id());
+        })
+        ->with(['user', 'items' => function($query) {
+            $query->where('seller_id', auth()->id())
+                  ->with(['item' => function($query) {
+                      $query->withoutGlobalScopes();
+                  }, 'seller']);
+        }])
+        ->latest()
+        ->paginate(10);
+
+        // Debug the first order's items
+        if ($orders->isNotEmpty()) {
+            $firstOrder = $orders->first();
+            \Log::info('First Order Items:', [
+                'order_id' => $firstOrder->id,
+                'items' => $firstOrder->items->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'item_type' => $item->item_type,
+                        'item_id' => $item->item_id,
+                        'item' => $item->item,
+                    ];
+                })
+            ]);
+        }
+
+        return view('seller.orders.index', compact('orders'));
+    }
+
+    public function show(Order $order)
+    {
+        if (!$order->items()->where('seller_id', auth()->id())->exists()) {
+            abort(403);
+        }
+
+        $order->load(['user', 'items' => function($query) {
+            $query->where('seller_id', auth()->id())
+                  ->with(['item' => function($query) {
+                      $query->withoutGlobalScopes();
+                  }, 'seller']);
+        }]);
+
+        return view('seller.orders.show', compact('order'));
+    }
+
     public function updateStatus(Request $request, Order $order)
     {
         $user = auth()->user();
@@ -29,7 +86,9 @@ class OrderController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($order, $status, $user) {
+            $previousStatus = $order->delivery_status;
+
+            DB::transaction(function () use ($order, $status, $user, $previousStatus) {
                 // Update order delivery status
                 $order->update([
                     'delivery_status' => $status,
@@ -37,6 +96,9 @@ class OrderController extends Controller
                     'dispatched_at' => $status === 'dispatched' ? now() : $order->dispatched_at,
                     'delivered_at' => $status === 'delivered' ? now() : $order->delivered_at
                 ]);
+
+                // Update seller balance
+                $this->sellerBalanceService->updateBalanceForOrderStatus($order, $status, $previousStatus);
 
                 // Create delivery tracking entry
                 $order->deliveryTracking()->create([

@@ -6,16 +6,21 @@ use App\Models\Order;
 use App\Models\Conversation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Services\PayoutService;
 use App\Models\Warehouse;
+use App\Models\SellerBalance;
+use App\Services\SellerBalanceService;
 
 class OrderController extends Controller
 {
     protected $payoutService;
+    protected $sellerBalanceService;
 
-    public function __construct(PayoutService $payoutService)
+    public function __construct(PayoutService $payoutService, SellerBalanceService $sellerBalanceService)
     {
         $this->payoutService = $payoutService;
+        $this->sellerBalanceService = $sellerBalanceService;
     }
 
     public function index()
@@ -81,22 +86,34 @@ class OrderController extends Controller
             'status' => 'required|in:pending,processing,delivered_to_warehouse,dispatched,completed,cancelled'
         ]);
 
-        $order->delivery_status = $request->status;
+        $previousStatus = $order->delivery_status;
         
-        // If order is completed, mark all products as sold
-        if ($request->status === 'completed') {
-            foreach ($order->items as $item) {
-                $product = $item->item;
-                if ($product) {
-                    $product->is_sold = true;
-                    $product->save();
+        DB::beginTransaction();
+        try {
+            // First update the order status
+            $order->delivery_status = $request->status;
+            $order->save();
+
+            // If order is completed, mark products as sold
+            if ($request->status === 'completed') {
+                foreach ($order->items as $item) {
+                    if ($item->item_type === 'App\\Models\\Product') {
+                        $item->item->update(['is_sold' => true]);
+                    }
                 }
             }
-        }
-        
-        $order->save();
 
-        return back()->with('success', 'Order status updated successfully');
+            // Update seller balances using the service
+            $this->sellerBalanceService->updateBalanceForOrderStatus($order, $request->status, $previousStatus);
+            
+            DB::commit();
+            
+            return back()->with('success', 'Order status updated successfully');
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Order status update failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update order status. Please try again.');
+        }
     }
 
     public function adminIndex()
@@ -180,33 +197,48 @@ class OrderController extends Controller
             ], 403);
         }
 
-        $order->update([
-            'status' => 'confirmed',
-            'confirmed_at' => now()
-        ]);
-
-        // Mark products as sold
-        foreach ($order->items as $item) {
-            if ($item->item_type === 'product') {
-                $product = $item->item;
-                $product->update(['is_sold' => true]);
-            }
-        }
-
-        // Send a system message in the conversation
-        if ($order->conversation) {
-            $order->conversation->messages()->create([
-                'sender_id' => Auth::id(),
-                'content' => "✅ Order #" . $order->id . " has been confirmed by the seller!",
-                'is_system_message' => true
+        DB::beginTransaction();
+        try {
+            // Update order status to completed
+            $order->update([
+                'delivery_status' => 'completed',
+                'confirmed_at' => now()
             ]);
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Order confirmed successfully',
-            'order' => $order
-        ]);
+            // Mark products as sold
+            foreach ($order->items as $item) {
+                if ($item->item_type === 'product') {
+                    $product = $item->item;
+                    $product->update(['is_sold' => true]);
+                }
+            }
+
+            // Update seller balances using the service
+            $this->sellerBalanceService->updateBalanceForOrderConfirmation($order);
+
+            // Send a system message in the conversation
+            if ($order->conversation) {
+                $order->conversation->messages()->create([
+                    'sender_id' => Auth::id(),
+                    'content' => "✅ Order #" . $order->id . " has been confirmed by the seller!",
+                    'is_system_message' => true
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order confirmed successfully',
+                'order' => $order
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Order confirmation failed: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to confirm order'
+            ], 500);
+        }
     }
 
     public function getOrderDetails(Order $order)
@@ -292,36 +324,79 @@ class OrderController extends Controller
             return redirect()->back()->with('error', 'Your cart is empty');
         }
 
+        // Check if any of these items are already in an order
+        $itemsInOrders = \App\Models\OrderItem::whereIn('item_id', $cartItems->pluck('item_id'))
+            ->whereIn('item_type', $cartItems->pluck('item_type'))
+            ->exists();
+
+        if ($itemsInOrders) {
+            return redirect()->back()->with('error', 'Some items in your cart have already been ordered. Please refresh your cart.');
+        }
+
         \DB::beginTransaction();
         try {
+            // Group items by seller
+            $sellerItems = [];
             foreach ($cartItems as $cartItem) {
-                $order = null;
                 if ($cartItem->item) {
-                    $order = Order::create([
-                        'user_id' => $user->id,
-                        'seller_id' => $cartItem->item->user_id,
-                        'item_id' => $cartItem->item_id,
-                        'item_type' => $cartItem->item_type,
-                        'amount' => $cartItem->item->price,
-                        'delivery_status' => 'pending',
-                        'payment_status' => 'pending'
-                    ]);
-                }
-
-                // Update seller balance when order is created
-                if ($order) {
-                    $this->payoutService->updateSellerBalances($order);
+                    $sellerId = $cartItem->item->user_id;
+                    if (!isset($sellerItems[$sellerId])) {
+                        $sellerItems[$sellerId] = [];
+                    }
+                    $sellerItems[$sellerId][] = $cartItem;
                 }
             }
 
-            // Clear the cart after creating orders
-            $cartItems->each->delete();
+            $orders = [];
+            // Create an order for each seller
+            foreach ($sellerItems as $sellerId => $items) {
+                // Calculate total amount for this seller's items
+                $totalAmount = collect($items)->sum(function ($item) {
+                    return $item->item->price * $item->quantity;
+                });
+
+                // Create the order
+                $order = Order::create([
+                    'user_id' => $user->id,
+                    'seller_id' => $sellerId,
+                    'amount' => $totalAmount,
+                    'delivery_status' => 'pending',
+                    'payment_status' => 'pending',
+                    'order_number' => 'ORD-' . time() . '-' . $sellerId // Add unique order number
+                ]);
+
+                // Create order items
+                foreach ($items as $cartItem) {
+                    $order->items()->create([
+                        'seller_id' => $sellerId,
+                        'item_id' => $cartItem->item_id,
+                        'item_type' => $cartItem->item_type,
+                        'price' => $cartItem->item->price,
+                        'quantity' => $cartItem->quantity
+                    ]);
+
+                    // Mark the item as sold to prevent duplicate orders
+                    $cartItem->item->update(['is_sold' => true]);
+                }
+
+                // Update seller balance using the service
+                $this->sellerBalanceService->updateBalanceForNewOrder($order);
+
+                $orders[] = $order;
+            }
+
+            // Clear the cart AFTER successful order creation
+            \App\Models\CartItem::where('user_id', $user->id)->delete();
 
             \DB::commit();
-            return redirect()->route('orders.index')->with('success', 'Orders placed successfully! Please complete the payment.');
+
+            // Return success response
+            return redirect()->route('orders.index')->with('success', 'Orders created successfully!');
+
         } catch (\Exception $e) {
             \DB::rollback();
-            return redirect()->back()->with('error', 'Failed to place order. Please try again.');
+            \Log::error('Order creation failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to create order. Please try again.');
         }
     }
 

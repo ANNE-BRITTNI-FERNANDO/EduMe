@@ -18,12 +18,16 @@ class Product extends Model
         'category',
         'user_id',
         'is_approved',
-        'is_rejected'
+        'is_rejected',
+        'is_sold'
     ];
 
     // If you want to use attribute casting, for example to ensure that the price is always a float
     protected $casts = [
         'price' => 'float',
+        'is_sold' => 'boolean',
+        'is_approved' => 'boolean',
+        'is_rejected' => 'boolean'
     ];
 
     // Accessor for getting the full URL of the image
