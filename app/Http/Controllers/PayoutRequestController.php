@@ -34,7 +34,7 @@ class PayoutRequestController extends Controller
         }
 
         $payoutRequest = PayoutRequest::create([
-            'user_id' => $user->id,
+            'seller_id' => $user->id,
             'amount' => $validated['amount'],
             'bank_name' => $validated['bank_name'],
             'account_number' => $validated['account_number'],
@@ -42,9 +42,6 @@ class PayoutRequestController extends Controller
             'notes' => $validated['notes'],
             'status' => 'pending'
         ]);
-
-        // Deduct from available balance when request is created
-        $sellerBalance->decrement('available_balance', $validated['amount']);
 
         return back()->with('success', 'Payout request submitted successfully');
     }

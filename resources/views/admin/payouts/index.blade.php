@@ -20,7 +20,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-yellow-800 dark:text-yellow-100 text-sm font-medium">Pending Requests</p>
-                            <p class="text-yellow-900 dark:text-yellow-50 text-2xl font-bold">{{ $stats['pending_count'] }}</p>
+                            <p class="text-yellow-900 dark:text-yellow-50 text-2xl font-bold">{{ $stats['pending_count'] ?? 0 }}</p>
                         </div>
                         <div class="text-yellow-500">
                             <i class="fas fa-clock fa-2x"></i>
@@ -33,7 +33,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-800 dark:text-blue-100 text-sm font-medium">Pending Amount</p>
-                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">LKR {{ number_format($stats['pending_amount'], 2) }}</p>
+                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">LKR {{ number_format($stats['pending_amount'] ?? 0, 2) }}</p>
                         </div>
                         <div class="text-blue-500">
                             <i class="fas fa-dollar-sign fa-2x"></i>
@@ -46,7 +46,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-green-800 dark:text-green-100 text-sm font-medium">Completed Payouts</p>
-                            <p class="text-green-900 dark:text-green-50 text-2xl font-bold">{{ $stats['completed_count'] }}</p>
+                            <p class="text-green-900 dark:text-green-50 text-2xl font-bold">{{ $stats['completed_count'] ?? 0 }}</p>
                         </div>
                         <div class="text-green-500">
                             <i class="fas fa-check-circle fa-2x"></i>
@@ -59,7 +59,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-purple-800 dark:text-purple-100 text-sm font-medium">Total Paid</p>
-                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">LKR {{ number_format($stats['completed_amount'], 2) }}</p>
+                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">LKR {{ number_format($stats['completed_amount'] ?? 0, 2) }}</p>
                         </div>
                         <div class="text-purple-500">
                             <i class="fas fa-money-bill-wave fa-2x"></i>

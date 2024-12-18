@@ -75,24 +75,37 @@
                                             <div class="text-sm text-gray-500">{{ $order->user->email }}</div>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <div class="text-sm text-gray-900 dark:text-white">{{ $order->items->count() }} items</div>
+                                            <div class="text-sm text-gray-900 dark:text-white">
+                                                {{ $order->items->count() }} {{ Str::plural('item', $order->items->count()) }}
+                                            </div>
                                             <div class="text-xs text-gray-500">
                                                 @foreach($order->items->take(2) as $item)
                                                     <div>
-                                                        @if($item->item_type === 'App\Models\Product')
-                                                            {{ Str::limit($item->item->product_name ?? 'Product', 20) }}
+                                                        @if($item->item)
+                                                            @if($item->item_type === 'App\Models\Product')
+                                                                {{ Str::limit($item->item->product_name, 20) }}
+                                                            @elseif($item->item_type === 'App\Models\Bundle')
+                                                                {{ Str::limit($item->item->bundle_name, 20) }}
+                                                            @endif
                                                         @else
-                                                            {{ Str::limit($item->item->bundle_name ?? 'Bundle', 20) }}
+                                                            <span class="text-gray-400">Deleted item</span>
                                                         @endif
+                                                        <span class="text-gray-400">
+                                                            ({{ $item->quantity }} × LKR {{ number_format($item->price, 0) }})
+                                                        </span>
                                                     </div>
                                                 @endforeach
                                                 @if($order->items->count() > 2)
-                                                    <div>+{{ $order->items->count() - 2 }} more</div>
+                                                    <div class="text-gray-400">+{{ $order->items->count() - 2 }} more items</div>
                                                 @endif
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">Rs. {{ number_format($order->total_amount, 2) }}</div>
+                                            <div class="text-sm text-gray-900 dark:text-white">
+                                                LKR {{ number_format($order->items->sum(function($item) {
+                                                    return $item->price * $item->quantity;
+                                                }), 0) }}
+                                            </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 

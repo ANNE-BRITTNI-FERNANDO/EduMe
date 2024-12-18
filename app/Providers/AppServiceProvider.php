@@ -27,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
             'bundle' => Bundle::class,
         ]);
 
+        \App\Models\Order::observe(\App\Observers\OrderObserver::class);
+
         // Set default timezone for Carbon
         date_default_timezone_set('Asia/Colombo');
         

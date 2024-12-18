@@ -12,21 +12,20 @@ class Bundle extends Model
 
     protected $fillable = [
         'bundle_name',
-        'bundle_description',
+        'description',
         'bundle_image',
         'price',
         'user_id',
-        'is_approved',
-        'is_rejected',
+        'status',
         'rejection_reason',
+        'rejection_details',
         'is_sold',
         'quantity'
     ];
 
     protected $casts = [
         'price' => 'float',
-        'is_approved' => 'boolean',
-        'is_rejected' => 'boolean',
+        'is_sold' => 'boolean',
         'quantity' => 'integer'
     ];
 
@@ -58,8 +57,7 @@ class Bundle extends Model
     public function scopeAvailable($query)
     {
         return $query->where('status', '!=', 'sold')
-                    ->where('is_approved', true)
-                    ->where('is_rejected', false)
+                    ->where('status', 'approved')
                     ->where('quantity', '>', 0);
     }
 }

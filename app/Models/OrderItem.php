@@ -39,24 +39,7 @@ class OrderItem extends Model
 
     public function item(): MorphTo
     {
-        $map = [
-            'product' => Product::class,
-            'bundle' => Bundle::class,
-        ];
-
-        $type = $this->item_type;
-        if (isset($map[$type])) {
-            $this->item_type = $map[$type];
-        }
-
-        return $this->morphTo()->withDefault(function ($morphTo, $model) {
-            if ($model instanceof OrderItem) {
-                return new Product([
-                    'product_name' => 'Unknown Product',
-                    'price' => $model->price
-                ]);
-            }
-        });
+        return $this->morphTo()->withTrashed();
     }
 
     public function payoutRequests(): HasMany

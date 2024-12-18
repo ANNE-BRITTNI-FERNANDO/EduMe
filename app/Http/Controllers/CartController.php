@@ -59,14 +59,24 @@ class CartController extends Controller
         try {
             $product = Product::findOrFail($id);
             
+            // Check if product is sold
+            if ($product->is_sold || $product->quantity <= 0) {
+                return redirect()->back()->with('error', 'Product is no longer available');
+            }
+
             // Check if product already in cart
             $existingCartItem = CartItem::where('user_id', auth()->id())
                 ->where('product_id', $id)
                 ->where('item_type', 'product')
-                ->first();
+                ->exists();
 
             if ($existingCartItem) {
                 return redirect()->back()->with('error', 'Product is already in your cart');
+            }
+
+            // Check if product belongs to the current user
+            if ($product->user_id === auth()->id()) {
+                return redirect()->back()->with('error', 'You cannot add your own product to cart');
             }
 
             CartItem::create([
@@ -78,6 +88,10 @@ class CartController extends Controller
 
             return redirect()->back()->with('success', 'Product added to cart successfully');
         } catch (\Exception $e) {
+            \Log::error('Failed to add product to cart: ' . $e->getMessage(), [
+                'product_id' => $id,
+                'user_id' => auth()->id()
+            ]);
             return redirect()->back()->with('error', 'Failed to add product to cart');
         }
     }

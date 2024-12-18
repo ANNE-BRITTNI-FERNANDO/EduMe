@@ -102,9 +102,6 @@
                             Items
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Sellers
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Total
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -127,56 +124,55 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {{ $order->user->name }}
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">
-                            <div class="flex flex-col space-y-2">
+                        <td class="px-6 py-4">
+                            <div class="space-y-2">
                                 @foreach($order->items as $item)
                                     <div class="flex items-center space-x-3">
-                                        <div class="flex-shrink-0 w-12 h-12">
-                                            @if($item->item_type === 'App\Models\Product' && $item->item)
-                                                @if($item->item->image_path)
-                                                    <img class="w-full h-full object-cover rounded" src="{{ Storage::url($item->item->image_path) }}" alt="{{ $item->item->product_name }}">
-                                                @else
-                                                    <div class="w-full h-full bg-gray-200 rounded flex items-center justify-center">
-                                                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
+                                        @if($item->item && $item->item->image_path)
+                                            <img src="{{ Storage::url($item->item->image_path) }}" 
+                                                alt="Product image" 
+                                                class="w-10 h-10 object-cover rounded-md">
+                                        @else
+                                            <div class="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
+                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                            </div>
+                                        @endif
+                                        <div class="flex flex-col">
+                                            <div class="text-sm font-medium text-gray-900">
+                                                @if($item->item)
+                                                    @if($item->item_type === 'App\\Models\\Product')
+                                                        {{ $item->item->product_name }}
+                                                    @elseif($item->item_type === 'App\\Models\\Bundle')
+                                                        {{ $item->item->bundle_name }}
+                                                    @endif
+                                                    <div class="text-xs text-gray-500">
+                                                        Quantity: {{ $item->quantity }} × LKR {{ number_format($item->price, 0) }}
                                                     </div>
-                                                @endif
-                                            @elseif($item->item_type === 'App\Models\Bundle')
-                                                <div class="w-full h-full bg-indigo-100 rounded flex items-center justify-center">
-                                                    <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                    </svg>
-                                                </div>
-                                            @endif
-                                        </div>
-                                        <div>
-                                            <div class="font-medium">
-                                                @if($item->item_type === 'App\Models\Product' && $item->item)
-                                                    {{ $item->item->product_name }}
-                                                @elseif($item->item_type === 'App\Models\Bundle' && $item->item)
-                                                    {{ $item->item->bundle_name }}
                                                 @else
-                                                    Unknown Item
+                                                    <span class="text-gray-500">Product no longer available</span>
                                                 @endif
                                             </div>
-                                            <div class="text-sm text-gray-500">
-                                                x{{ $item->quantity }} · LKR {{ number_format($item->price, 2) }}
+                                            <div class="text-xs text-gray-500">
+                                                Seller: {{ $item->seller->name }}
                                             </div>
                                         </div>
                                     </div>
                                 @endforeach
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">
-                            <div class="flex flex-col space-y-1">
-                                @foreach($order->items->unique('seller_id') as $item)
-                                    <div>{{ $item->seller->name }}</div>
-                                @endforeach
-                            </div>
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            LKR {{ number_format($order->total_amount) }}
+                            @php
+                                $subtotal = $order->items->sum(function($item) {
+                                    return $item->price * $item->quantity;
+                                });
+                            @endphp
+                            <div class="flex flex-col">
+                                <div class="font-medium">
+                                    LKR {{ number_format($subtotal, 0) }}
+                                </div>
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full

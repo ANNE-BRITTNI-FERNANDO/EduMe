@@ -66,6 +66,15 @@
                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
                                         Edit Bundle
                                     </a>
+                                    <form action="{{ route('seller.bundles.destroy', $bundle->id) }}" method="POST" class="inline-block">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" 
+                                                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                                onclick="return confirm('Are you sure you want to delete this bundle? This action cannot be undone.')">
+                                            Delete Bundle
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
 

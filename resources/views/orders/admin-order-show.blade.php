@@ -93,43 +93,83 @@
                                         <tr>
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center">
-                                                    @if($item->item_type === 'App\\Models\\Product' && $item->item->image_path)
-                                                        <img src="{{ asset('storage/' . $item->item->image_path) }}" alt="Product Image" class="w-16 h-16 object-cover rounded">
+                                                    @if($item->item)
+                                                        @if($item->item_type === 'App\\Models\\Product')
+                                                            @if($item->item->image_path)
+                                                                <img src="{{ asset('storage/' . $item->item->image_path) }}" alt="{{ $item->item->product_name }}" class="w-16 h-16 object-cover rounded">
+                                                            @else
+                                                                <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                                                                    <span class="text-gray-500">No Image</span>
+                                                                </div>
+                                                            @endif
+                                                            <div class="ml-4">
+                                                                <div class="text-sm font-medium text-gray-900">{{ $item->item->product_name }}</div>
+                                                                <div class="text-sm text-gray-500">Product</div>
+                                                            </div>
+                                                        @elseif($item->item_type === 'App\\Models\\Bundle')
+                                                            @if($item->item->bundle_image)
+                                                                <img src="{{ asset('storage/' . $item->item->bundle_image) }}" alt="{{ $item->item->bundle_name }}" class="w-16 h-16 object-cover rounded">
+                                                            @else
+                                                                <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                                                                    <span class="text-gray-500">No Image</span>
+                                                                </div>
+                                                            @endif
+                                                            <div class="ml-4">
+                                                                <div class="text-sm font-medium text-gray-900">{{ $item->item->bundle_name }}</div>
+                                                                <div class="text-sm text-gray-500">Bundle</div>
+                                                            </div>
+                                                        @endif
                                                     @else
                                                         <div class="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
                                                             <span class="text-gray-500">No Image</span>
                                                         </div>
-                                                    @endif
-                                                    <div class="ml-4">
-                                                        @if($item->item_type === 'App\\Models\\Product')
-                                                            <div class="text-sm font-medium text-gray-900">{{ $item->item->product_name }}</div>
-                                                            <div class="text-sm text-gray-500">Product</div>
-                                                        @elseif($item->item_type === 'App\\Models\\Bundle')
-                                                            <div class="text-sm font-medium text-gray-900">{{ $item->item->bundle_name }}</div>
-                                                            <div class="text-sm text-gray-500">Bundle</div>
-                                                        @else
+                                                        <div class="ml-4">
                                                             <div class="text-sm font-medium text-gray-900">Unknown Item</div>
-                                                        @endif
-                                                    </div>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4">
-                                                <div class="text-sm text-gray-900">{{ $item->seller->name }}</div>
-                                                <div class="text-sm text-gray-500">Seller</div>
+                                                <div class="text-sm text-gray-900">
+                                                    @if($item->seller)
+                                                        {{ $item->seller->name }}
+                                                        <div class="text-sm text-gray-500">Seller</div>
+                                                    @else
+                                                        -
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4">
                                                 <div class="text-sm text-gray-900">x{{ $item->quantity }}</div>
                                             </td>
                                             <td class="px-6 py-4">
-                                                <div class="text-sm text-gray-900">LKR {{ number_format($item->price) }}</div>
+                                                <div class="text-sm text-gray-900">₹{{ number_format($item->price, 2) }}</div>
                                             </td>
                                             <td class="px-6 py-4">
-                                                <div class="text-sm text-gray-900">LKR {{ number_format($item->price * $item->quantity) }}</div>
+                                                <div class="text-sm text-gray-900">₹{{ number_format($item->price * $item->quantity, 2) }}</div>
                                             </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="bg-gray-50 p-4 rounded-lg mt-6">
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Subtotal</span>
+                                <span class="font-medium">₹{{ number_format($order->subtotal, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Delivery Fee</span>
+                                <span class="font-medium">₹{{ number_format($order->delivery_fee, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between text-base font-medium pt-2 border-t">
+                                <span>Total</span>
+                                <span>₹{{ number_format($order->total_amount, 2) }}</span>
+                            </div>
                         </div>
                     </div>
 

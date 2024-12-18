@@ -65,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/bundles', [BundleController::class, 'store'])->name('bundles.store');
             Route::get('/bundles/{bundle}/edit', [BundleController::class, 'edit'])->name('bundles.edit');
             Route::put('/bundles/{bundle}', [BundleController::class, 'update'])->name('bundles.update');
+            Route::delete('/bundles/{bundle}', [BundleController::class, 'destroy'])->name('bundles.destroy');
             Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
             Route::post('/products', [ProductController::class, 'store'])->name('products.store');
             Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');

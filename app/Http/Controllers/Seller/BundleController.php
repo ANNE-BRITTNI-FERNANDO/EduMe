@@ -6,6 +6,7 @@ use App\Models\Bundle;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class BundleController extends Controller
@@ -16,7 +17,7 @@ class BundleController extends Controller
         $request->validate([
             'bundleName' => 'required|string|max:255',
             'description' => 'required|string',
-            'price' => 'required|numeric',
+            'price' => 'required|numeric|min:0',
             'bundleImage' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'categories' => 'required|array|min:2|max:5',
             'categories.*' => 'required|string',
@@ -31,14 +32,15 @@ class BundleController extends Controller
             $bundleImagePath = $request->file('bundleImage')->store('bundles', 'public');
 
             // Create a new bundle entry
-            $bundle = Bundle::create([
-                'bundle_name' => $request->bundleName,
-                'description' => $request->description,
-                'price' => $request->price,
-                'bundle_image' => $bundleImagePath,
-                'status' => 'pending', // Set to 'pending' by default
-                'user_id' => auth()->id(), // Add the user_id of the seller
-            ]);
+            $bundle = new Bundle();
+            $bundle->bundle_name = $request->bundleName;
+            $bundle->description = $request->description;
+            $bundle->price = $request->price;
+            $bundle->bundle_image = $bundleImagePath;
+            $bundle->status = 'pending';
+            $bundle->user_id = auth()->id();
+            $bundle->quantity = 1; // Default quantity
+            $bundle->save();
 
             // Handle Category Images
             foreach ($request->categories as $index => $categoryName) {
@@ -48,6 +50,7 @@ class BundleController extends Controller
                 $bundle->categories()->create([
                     'category' => $categoryName,
                     'category_image' => $categoryImagePath,
+                    'status' => 'pending'
                 ]);
             }
 
@@ -67,7 +70,10 @@ class BundleController extends Controller
             return redirect()->back()->with('success', 'Bundle created successfully and sent for review!');
         } catch (\Exception $e) {
             DB::rollback();
-            \Log::error('Failed to create bundle: ' . $e->getMessage());
+            \Log::error('Failed to create bundle: ' . $e->getMessage(), [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()->with('error', 'Failed to create bundle. Please try again.');
         }
     }
@@ -293,5 +299,37 @@ class BundleController extends Controller
             ->get();
 
         return view('seller.bundles.index', compact('bundles'));
+    }
+
+    public function destroy(Bundle $bundle)
+    {
+        // Check if user owns this bundle
+        if ($bundle->user_id !== auth()->id()) {
+            return redirect()->back()->with('error', 'Unauthorized action.');
+        }
+
+        try {
+            // Delete the bundle image from storage
+            if ($bundle->bundle_image) {
+                Storage::disk('public')->delete($bundle->bundle_image);
+            }
+
+            // Delete category images
+            foreach ($bundle->categories as $category) {
+                if ($category->category_image) {
+                    Storage::disk('public')->delete($category->category_image);
+                }
+            }
+
+            // Delete the bundle (this will also delete related categories due to cascade)
+            $bundle->delete();
+
+            return redirect()->route('seller.bundles.index')
+                ->with('success', 'Bundle deleted successfully.');
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete bundle: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Failed to delete bundle. Please try again.');
+        }
     }
 }

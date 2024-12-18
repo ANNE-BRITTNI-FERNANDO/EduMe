@@ -58,6 +58,11 @@ class Product extends Model
                     ->where('quantity', '>', 0);
     }
 
+    public function getMorphClass()
+    {
+        return 'product';
+    }
+
     protected static function boot()
     {
         parent::boot();

@@ -19,9 +19,13 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with(['user', 'items.item' => function($query) {
-            $query->withTrashed();
-        }, 'items.seller']);
+        $query = Order::with([
+            'user', 
+            'items.item' => function($query) {
+                $query->withTrashed();
+            }, 
+            'items.seller'
+        ]);
 
         // Apply filters
         if ($request->filled('seller_id')) {
@@ -46,38 +50,44 @@ class OrderController extends Controller
             $query->where(function ($q) use ($request) {
                 $q->where('id', 'like', '%' . $request->search . '%')
                   ->orWhereHas('user', function ($q) use ($request) {
-                      $q->where('name', 'like', '%' . $request->search . '%');
+                      $q->where('name', 'like', '%' . $request->search . '%')
+                        ->orWhere('email', 'like', '%' . $request->search . '%');
+                  })
+                  ->orWhereHas('items.item', function ($q) use ($request) {
+                      $q->where('product_name', 'like', '%' . $request->search . '%')
+                        ->orWhere('bundle_name', 'like', '%' . $request->search . '%');
                   });
             });
         }
 
         $orders = $query->latest()->paginate(10);
-        
-        // Get all sellers for the filter dropdown
-        $sellers = \App\Models\User::role('seller')->get();
+        $sellers = User::role('seller')->get();
 
         // Calculate statistics
         $totalOrders = Order::count();
         $pendingOrders = Order::where('delivery_status', 'pending')->count();
-        $completedOrders = Order::whereIn('delivery_status', ['completed', 'delivered'])->count();
-        $totalRevenue = Order::whereIn('delivery_status', ['completed', 'delivered'])
-            ->sum('total_amount');
+        $completedOrders = Order::where('delivery_status', 'completed')->count();
+        $totalRevenue = Order::whereIn('delivery_status', ['completed', 'delivered'])->sum('total');
 
         return view('admin.orders.index', compact(
-            'orders', 
-            'sellers', 
-            'totalOrders', 
-            'pendingOrders', 
-            'completedOrders', 
+            'orders',
+            'sellers',
+            'totalOrders',
+            'pendingOrders',
+            'completedOrders',
             'totalRevenue'
         ));
     }
 
     public function show(Order $order)
     {
-        $order->load(['user', 'items.item' => function($query) {
-            $query->withTrashed();
-        }, 'items.seller']);
+        $order->load([
+            'user',
+            'items.item.seller',
+            'items.item' => function ($query) {
+                $query->withTrashed();
+            }
+        ]);
         
         return view('admin.orders.show', compact('order'));
     }

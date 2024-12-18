@@ -72,8 +72,6 @@ class OrderController extends Controller
             'status' => 'required|in:pending,processing,delivered_to_warehouse,dispatched,completed,cancelled'
         ]);
 
-        $previousStatus = $order->delivery_status;
-        
         DB::beginTransaction();
         try {
             // Update order status
@@ -141,9 +139,6 @@ class OrderController extends Controller
                     }
                 }
             }
-            
-            // Update seller balances
-            $this->sellerBalanceService->updateBalanceForOrderStatus($order, $validated['status'], $previousStatus);
             
             DB::commit();
             return back()->with('success', 'Order status updated successfully');
@@ -445,35 +440,74 @@ class OrderController extends Controller
     public function updateDeliveryStatus(Order $order, Request $request)
     {
         $request->validate([
-            'status' => 'required|in:pending,warehouse_confirmed,dispatched,delivered',
-            'warehouse_id' => 'required_if:status,warehouse_confirmed|exists:warehouses,id'
+            'status' => 'required|in:pending,delivered_to_warehouse,dispatched,delivered,cancelled',
+            'warehouse_id' => 'required_if:status,delivered_to_warehouse|exists:warehouses,id'
         ]);
 
-        $order->delivery_status = $request->status;
-        
-        if ($request->status === 'warehouse_confirmed') {
-            $order->warehouse_id = $request->warehouse_id;
-            $order->warehouse_confirmed_at = now();
+        DB::beginTransaction();
+        try {
+            $previousStatus = $order->delivery_status;
+            $order->delivery_status = $request->status;
             
-            // Notify seller and buyer
-            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been received at the warehouse.'));
-            $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been confirmed at warehouse.'));
-        }
-        
-        if ($request->status === 'dispatched') {
-            $order->dispatched_at = now();
-            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been dispatched from the warehouse.'));
-        }
-        
-        if ($request->status === 'delivered') {
-            $order->delivered_at = now();
-            $order->user->notify(new OrderStatusUpdated($order, 'Your order has been delivered successfully.'));
-            $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been delivered to customer.'));
-        }
+            // Sync order status with delivery status
+            if ($request->status === 'delivered_to_warehouse') {
+                $order->warehouse_id = $request->warehouse_id;
+                $order->warehouse_confirmed_at = now();
+                $order->status = 'delivered_to_warehouse';
+                
+                // Update seller balance when warehouse confirms
+                $this->sellerBalanceService->updateBalanceForOrderStatus($order, 'delivered_to_warehouse', $previousStatus);
+                
+                // Notify seller and buyer
+                $order->user->notify(new OrderStatusUpdated($order, 'Your order has been received at the warehouse.'));
+                $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been confirmed at warehouse.'));
+            } 
+            elseif ($request->status === 'dispatched') {
+                $order->dispatched_at = now();
+                $order->status = 'dispatched';
+                $order->user->notify(new OrderStatusUpdated($order, 'Your order has been dispatched from the warehouse.'));
+            } 
+            elseif ($request->status === 'delivered') {
+                $order->delivered_at = now();
+                $order->status = 'delivered';
+                
+                // Update seller balance when order is delivered
+                $this->sellerBalanceService->updateBalanceForOrderStatus($order, 'delivered', $previousStatus);
+                
+                $order->user->notify(new OrderStatusUpdated($order, 'Your order has been delivered successfully.'));
+                $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been delivered to customer.'));
+            }
+            elseif ($request->status === 'cancelled') {
+                $order->status = 'cancelled';
+                
+                // Update seller balance when order is cancelled
+                $this->sellerBalanceService->updateBalanceForOrderStatus($order, 'cancelled', $previousStatus);
+                
+                $order->user->notify(new OrderStatusUpdated($order, 'Your order has been cancelled.'));
+                $order->items->first()->seller->notify(new OrderStatusUpdated($order, 'Order has been cancelled.'));
+            }
 
-        $order->save();
+            $order->save();
+            
+            // Log the status change
+            \Log::info('Order status updated', [
+                'order_id' => $order->id,
+                'previous_status' => $previousStatus,
+                'new_status' => $request->status,
+                'warehouse_id' => $order->warehouse_id
+            ]);
 
-        return back()->with('success', 'Order status updated successfully.');
+            DB::commit();
+            return back()->with('success', 'Order status updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Failed to update order status: ' . $e->getMessage(), [
+                'order_id' => $order->id,
+                'status' => $request->status,
+                'error' => $e->getMessage()
+            ]);
+            return back()->with('error', 'Failed to update order status: ' . $e->getMessage());
+        }
     }
 
     public function getNearbyWarehouses()
