@@ -24,12 +24,42 @@ class SellerBalanceService
             'previous_status' => $previousStatus
         ]);
 
-        // Use the new PayoutService to handle delivery status changes
-        if ($newStatus === 'delivered_to_warehouse' || $newStatus === 'cancelled') {
-            return $this->payoutService->updateBalanceForDeliveryStatus($order, $newStatus, $previousStatus);
+        // Only update balance when order is first marked as delivered_to_warehouse
+        if ($newStatus === 'delivered_to_warehouse' && $previousStatus !== 'delivered_to_warehouse') {
+            // Get the seller balance
+            $sellerBalance = SellerBalance::where('seller_id', $order->seller_id)->first();
+            
+            if (!$sellerBalance) {
+                \Log::error("No seller balance found", [
+                    'seller_id' => $order->seller_id,
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            // Calculate order amount
+            $orderAmount = $order->items()
+                ->where('seller_id', $order->seller_id)
+                ->sum(DB::raw('price * quantity'));
+
+            \Log::info("Adding earnings from order", [
+                'order_id' => $order->id,
+                'amount' => $orderAmount,
+                'seller_id' => $order->seller_id
+            ]);
+
+            // Update the balance
+            DB::transaction(function () use ($sellerBalance, $orderAmount) {
+                $sellerBalance->total_earned += $orderAmount;
+                $sellerBalance->available_balance += $orderAmount;
+                $sellerBalance->balance_to_be_paid += $orderAmount;
+                $sellerBalance->save();
+            });
+
+            return true;
         }
 
-        // For other status changes, update the order status
+        // For other status changes, just update the order status without affecting the balance
         $order->status = $newStatus;
         $order->save();
 

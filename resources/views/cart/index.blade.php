@@ -15,12 +15,44 @@
                     </div>
 
                     @if($items->isEmpty())
-                        <div class="text-center py-12">
-                            <p class="text-xl text-gray-500 mb-4">Your cart is empty</p>
-                            <a href="{{ route('productlisting') }}" 
-                               class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                                Browse Products
-                            </a>
+                        <div class="flex flex-col items-center justify-center py-16 px-4 sm:px-6 lg:px-8">
+                            <div class="max-w-md w-full space-y-8 text-center">
+                                <!-- Empty Cart Illustration -->
+                                <div class="w-48 h-48 mx-auto">
+                                    <svg class="w-full h-full text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
+
+                                <!-- Empty Cart Message -->
+                                <div class="mt-6">
+                                    <h2 class="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">
+                                        Your cart is empty
+                                    </h2>
+                                    <p class="mt-3 text-base text-gray-500 dark:text-gray-400">
+                                        Looks like you haven't added anything to your cart yet.
+                                        <br>Let's find something special for you!
+                                    </p>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+                                    <a href="{{ route('productlisting') }}" 
+                                       class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                                        </svg>
+                                        Browse Products
+                                    </a>
+                                    <a href="{{ route('home') }}" 
+                                       class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-full text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                        </svg>
+                                        Return Home
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     @else
                         @php
@@ -79,21 +111,25 @@
                                                 </div>
                                                 <div class="flex items-center space-x-4">
                                                     @if($item->item_type === 'product')
-                                                        <a href="{{ route('cart.remove.product', ['id' => $item->product_id]) }}" 
-                                                           class="text-red-500 hover:text-red-700 flex items-center">
-                                                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                            Remove
-                                                        </a>
+                                                        <form action="{{ route('cart.remove', $item->id) }}" method="POST" class="inline">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="text-red-600 hover:text-red-800">
+                                                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </form>
                                                     @else
-                                                        <a href="{{ route('cart.remove.bundle', ['id' => $item->bundle_id]) }}" 
-                                                           class="text-red-500 hover:text-red-700 flex items-center">
-                                                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                            Remove
-                                                        </a>
+                                                        <form action="{{ route('cart.remove', $item->id) }}" method="POST" class="inline">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="text-red-600 hover:text-red-800">
+                                                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </form>
                                                     @endif
                                                 </div>
                                             </div>
@@ -195,11 +231,11 @@
                                             </div>
                                             <div class="flex justify-between">
                                                 <span class="text-gray-600">Delivery Fee</span>
-                                                <span class="font-semibold" id="delivery-fee">LKR 0.00</span>
+                                                <span class="font-semibold" id="delivery-fee" data-value="0">LKR 0.00</span>
                                             </div>
                                             <div class="border-t pt-3 flex justify-between">
                                                 <span class="text-lg font-bold">Total</span>
-                                                <span class="text-lg font-bold" id="total-amount">LKR {{ number_format($subtotal, 2) }}</span>
+                                                <span class="text-lg font-bold" id="total-amount" data-value="{{ $subtotal }}">LKR {{ number_format($subtotal, 2) }}</span>
                                             </div>
                                         </div>
                                         
@@ -243,48 +279,6 @@
             const deliveryFeeElement = document.getElementById('delivery-fee');
             const totalElement = document.getElementById('total-amount');
             
-            // Add change event listener to province select
-            provinceSelect.addEventListener('change', function() {
-                const selectedProvince = this.value;
-                
-                // Reset and disable district select if no province selected
-                if (!selectedProvince) {
-                    districtSelect.innerHTML = '<option value="">Select District</option>';
-                    districtSelect.disabled = true;
-                    return;
-                }
-                
-                // Show loading state
-                districtSelect.disabled = true;
-                districtSelect.innerHTML = '<option value="">Loading districts...</option>';
-                
-                // Fetch districts for selected province
-                fetch(`/cart/get-districts/${selectedProvince}`, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    districtSelect.disabled = false;
-                    districtSelect.innerHTML = '<option value="">Select District</option>';
-                    
-                    if (data.success && data.districts) {
-                        data.districts.forEach(district => {
-                            const option = document.createElement('option');
-                            option.value = district;
-                            option.textContent = district;
-                            districtSelect.appendChild(option);
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching districts:', error);
-                    districtSelect.innerHTML = '<option value="">Error loading districts</option>';
-                });
-            });
-
             // Function to format numbers
             function formatNumber(number) {
                 if (isNaN(number)) return '0.00';
@@ -293,6 +287,55 @@
                     maximumFractionDigits: 2
                 });
             }
+
+            // Function to update total
+            function updateTotal() {
+                const subtotal = parseFloat(subtotalElement.dataset.value || 0);
+                const deliveryFee = parseFloat(deliveryFeeElement.dataset.value || 0);
+                const total = subtotal + deliveryFee;
+                
+                totalElement.textContent = 'LKR ' + formatNumber(total);
+                totalElement.dataset.value = total;
+            }
+            
+            // Add change event listener to province select
+            provinceSelect.addEventListener('change', function() {
+                const selectedProvince = this.value;
+                
+                // Reset district select
+                districtSelect.innerHTML = '<option value="">Select District</option>';
+                districtSelect.disabled = true;
+                
+                if (!selectedProvince) {
+                    document.getElementById('province-error').classList.remove('hidden');
+                    return;
+                }
+                
+                document.getElementById('province-error').classList.add('hidden');
+                
+                // Fetch districts for selected province
+                fetch(`/cart/get-districts/${selectedProvince}`)
+                .then(response => response.json())
+                .then(data => {
+                    districtSelect.disabled = false;
+                    districtSelect.innerHTML = '<option value="">Select District</option>';
+                    
+                    if (Array.isArray(data)) {
+                        data.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district;
+                            option.textContent = district;
+                            districtSelect.appendChild(option);
+                        });
+                    } else {
+                        districtSelect.innerHTML = '<option value="">No districts available</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching districts:', error);
+                    districtSelect.innerHTML = '<option value="">Error loading districts</option>';
+                });
+            });
 
             // Update delivery fee when button is clicked
             updateDeliveryFeeBtn.addEventListener('click', function() {
@@ -313,7 +356,12 @@
                 document.getElementById('province-error').classList.add('hidden');
                 document.getElementById('district-error').classList.add('hidden');
                 
-                fetch('/cart/update-delivery-fee', {
+                // Show loading state
+                const originalText = updateDeliveryFeeBtn.textContent;
+                updateDeliveryFeeBtn.textContent = 'Calculating...';
+                updateDeliveryFeeBtn.disabled = true;
+                
+                fetch('{{ route('cart.update.delivery') }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -328,13 +376,10 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        const subtotal = parseFloat(subtotalElement.dataset.value || 0);
-                        const deliveryFee = parseFloat(data.delivery_fee);
-                        const total = subtotal + deliveryFee;
-                        
-                        // Update the display values
-                        deliveryFeeElement.textContent = 'LKR' + formatNumber(deliveryFee);
-                        totalElement.textContent = 'LKR' + formatNumber(total);
+                        // Update delivery fee and total
+                        deliveryFeeElement.textContent = 'LKR ' + data.delivery_fee;
+                        deliveryFeeElement.dataset.value = parseFloat(data.delivery_fee);
+                        updateTotal();
                         
                         // Show success message
                         const successMessage = document.createElement('div');
@@ -342,24 +387,28 @@
                         successMessage.textContent = 'Delivery fee updated successfully';
                         updateDeliveryFeeBtn.parentNode.appendChild(successMessage);
                         
-                        // Remove success message after 3 seconds
                         setTimeout(() => {
                             successMessage.remove();
                         }, 3000);
+                    } else {
+                        throw new Error(data.message || 'Failed to update delivery fee');
                     }
                 })
                 .catch(error => {
                     console.error('Error updating delivery fee:', error);
-                    // Show error message to user
                     const errorMessage = document.createElement('div');
                     errorMessage.className = 'text-red-600 mt-2';
-                    errorMessage.textContent = 'Failed to update delivery fee. Please try again.';
+                    errorMessage.textContent = error.message || 'Failed to update delivery fee. Please try again.';
                     updateDeliveryFeeBtn.parentNode.appendChild(errorMessage);
                     
-                    // Remove error message after 3 seconds
                     setTimeout(() => {
                         errorMessage.remove();
                     }, 3000);
+                })
+                .finally(() => {
+                    // Reset button state
+                    updateDeliveryFeeBtn.textContent = originalText;
+                    updateDeliveryFeeBtn.disabled = false;
                 });
             });
         });

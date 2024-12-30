@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Bundle; // Add the Bundle model to the namespace
@@ -13,11 +14,12 @@ use App\Models\Product; // Add the Product model to the namespace
 use App\Models\PayoutRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\SellerRating; // Add the SellerRating model to the namespace
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -29,12 +31,12 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'phone_number',
-        'street_address',
-        'city',
+        'phone',
+        'address',
         'province',
         'location',
         'is_seller',
+        'deleted_at',
     ];
 
     /**
@@ -118,5 +120,116 @@ class User extends Authenticatable
             'id', // Local key on users table
             'order_id' // Foreign key on order_items table
         );
+    }
+
+    // Relationship for orders where user is a buyer
+    public function buyerOrders()
+    {
+        return $this->hasMany(Order::class, 'user_id');
+    }
+
+    /**
+     * Get the orders that belong to the user.
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the ratings received by the user.
+     */
+    public function ratings()
+    {
+        return $this->hasMany(SellerRating::class, 'seller_id');
+    }
+
+    /**
+     * Get the ratings given by the user.
+     */
+    public function givenRatings()
+    {
+        return $this->hasMany(SellerRating::class, 'buyer_id');
+    }
+
+    /**
+     * Get the average rating of the user.
+     */
+    public function averageRating()
+    {
+        return $this->ratings()->avg('rating') ?? 0;
+    }
+
+    /**
+     * Get the total ratings of the user.
+     */
+    public function totalRatings()
+    {
+        return $this->ratings()->count();
+    }
+
+    /**
+     * Get the rating distribution of the user.
+     */
+    public function getRatingDistribution()
+    {
+        $distribution = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $distribution[$i] = $this->ratings()->where('rating', $i)->count();
+        }
+        return $distribution;
+    }
+
+    /**
+     * Handle account deletion logic
+     */
+    public function deleteAccount()
+    {
+        // Start a database transaction
+        \DB::beginTransaction();
+
+        try {
+            // 1. Handle products - soft delete them but keep them visible in past orders
+            $this->products()->update(['status' => 'unavailable']);
+            $this->products()->delete();
+
+            // 2. Handle bundles - soft delete them but keep them visible in past orders
+            $this->bundles()->update(['status' => 'unavailable']);
+            $this->bundles()->delete();
+
+            // 3. Handle active orders
+            $activeOrders = $this->buyerOrders()
+                ->whereIn('status', ['pending', 'processing'])
+                ->exists();
+            
+            if ($activeOrders) {
+                throw new \Exception('Cannot delete account while there are active orders. Please wait for all orders to complete.');
+            }
+
+            // 4. Handle seller balance
+            $sellerBalance = $this->sellerBalance;
+            if ($sellerBalance && $sellerBalance->available_balance > 0) {
+                throw new \Exception('Cannot delete account while there is an available balance. Please withdraw your earnings first.');
+            }
+
+            // 5. Mark the user as deleted but keep their information for order history
+            $this->update([
+                'email' => $this->email . '.deleted.' . time(),
+                'name' => 'Deleted User',
+                'phone' => null,
+                'address' => null,
+                'province' => null,
+                'location' => null,
+            ]);
+
+            // 6. Soft delete the user
+            $this->delete();
+
+            \DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
     }
 }

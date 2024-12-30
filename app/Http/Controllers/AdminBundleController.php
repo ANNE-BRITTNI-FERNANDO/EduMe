@@ -167,9 +167,8 @@ class AdminBundleController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Bundle $bundle)
     {
-        $bundle = Bundle::with(['categories', 'user'])->findOrFail($id);
         return view('admin.bundles.show', compact('bundle'));
     }
 

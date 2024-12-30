@@ -183,9 +183,8 @@ class OrderController extends Controller
     {
         $user = auth()->user();
         
-        // Check if user is either buyer or seller of this order through order items
-        if ($order->user_id !== $user->id && 
-            !$order->items()->where('seller_id', $user->id)->exists()) {
+        // Check if user is either buyer or seller of this order
+        if ($order->user_id !== $user->id && $order->seller_id !== $user->id) {
             abort(403);
         }
         
@@ -194,16 +193,11 @@ class OrderController extends Controller
             'user',
             'items.seller',
             'items.item',
-            'warehouse'
+            'warehouse',
+            'sellerRating'
         ]);
         
-        // Get the first seller from order items
-        $seller = $order->items->first()->seller;
-        
-        // Get available warehouses for seller
-        $warehouses = Warehouse::where('pickup_available', true)->get();
-        
-        return view('orders.show', compact('order', 'seller', 'warehouses'));
+        return view('orders.show', compact('order'));
     }
 
     public function adminIndex()
@@ -401,6 +395,20 @@ class OrderController extends Controller
                     'payment_status' => 'pending',
                     'order_number' => 'ORD-' . time() . '-' . $sellerId // Add unique order number
                 ]);
+
+                // Notify admin about the new order
+                $admin = User::where('role', 'admin')->first();
+                if ($admin) {
+                    $admin->notify(new NewOrderNotification($order));
+                }
+
+                // Notify seller about the new order
+                foreach ($sellerItems as $sellerId => $items) {
+                    $seller = User::find($sellerId);
+                    if ($seller) {
+                        $seller->notify(new NewOrderNotification($order));
+                    }
+                }
 
                 // Create order items
                 foreach ($items as $cartItem) {

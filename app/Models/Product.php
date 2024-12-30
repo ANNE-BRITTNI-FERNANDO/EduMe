@@ -4,6 +4,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use App\Models\ProductImage;
+use App\Models\User;
+use App\Models\OrderItem;
 
 class Product extends Model
 {
@@ -20,7 +23,11 @@ class Product extends Model
         'is_approved',
         'is_rejected',
         'quantity',
-        'is_sold'
+        'is_sold',
+        'status',
+        'rejection_reason',
+        'rejection_note',
+        'resubmitted'
     ];
 
     // If you want to use attribute casting, for example to ensure that the price is always a float
@@ -29,19 +36,48 @@ class Product extends Model
         'is_sold' => 'boolean',
         'is_approved' => 'boolean',
         'is_rejected' => 'boolean',
-        'quantity' => 'integer'
+        'quantity' => 'integer',
+        'resubmitted' => 'boolean'
     ];
 
     // Accessor for getting the full URL of the image
     public function getImageUrlAttribute()
     {
-        return asset('storage/' . $this->image_path);
+        if ($this->image_path) {
+            return asset('storage/' . $this->image_path);
+        }
+        
+        // Return the primary product image URL if exists
+        $primaryImage = $this->images()->where('is_primary', true)->first();
+        return $primaryImage ? $primaryImage->image_url : null;
     }
 
     // Define a relationship to the User model if required
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Define relationship to ProductImage model
+    public function productImages()
+    {
+        return $this->hasMany(ProductImage::class);
+    }
+
+    // Alias for user() to maintain semantic clarity
+    public function seller()
+    {
+        return $this->user();
+    }
+
+    public function images()
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order');
+    }
+
+    public function primaryImage()
+    {
+        return $this->hasOne(ProductImage::class)->where('is_primary', true);
     }
 
     public function orderItems(): MorphMany

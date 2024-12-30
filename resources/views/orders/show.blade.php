@@ -26,8 +26,16 @@
                             </div>
                             <div>
                                 <h3 class="text-lg font-medium mb-4">Seller Information</h3>
-                                <p class="text-gray-600"><span class="font-medium">Name:</span> {{ $seller->name }}</p>
-                                <p class="text-gray-600"><span class="font-medium">Email:</span> {{ $seller->email }}</p>
+                                @foreach($order->items->unique('seller_id') as $orderItem)
+                                    <div class="mb-4">
+                                        <p class="text-gray-600"><span class="font-medium">Name:</span> {{ $orderItem->seller->name }}</p>
+                                        <p class="text-gray-600"><span class="font-medium">Email:</span> {{ $orderItem->seller->email }}</p>
+                                        <!-- Display seller rating -->
+                                        <div class="mt-2">
+                                            <x-seller-rating :sellerId="$orderItem->seller_id" />
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
                         </div>
                     </div>
@@ -174,6 +182,70 @@
                             </table>
                         </div>
                     </div>
+
+                    @if($order->status === 'completed' && !$order->sellerRating)
+                        <div class="mt-6 bg-white shadow sm:rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Rate Your Experience</h3>
+                                <div class="mt-2 max-w-xl text-sm text-gray-500">
+                                    <p>Please rate your experience with this seller.</p>
+                                </div>
+                                <form action="{{ route('seller.ratings.store', ['order' => $order->id]) }}" method="POST" class="mt-5" onsubmit="return validateRating()">
+                                    @csrf
+                                    <input type="hidden" name="seller_id" value="{{ $orderItem->seller_id }}">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Rating</label>
+                                            <div class="mt-1 flex items-center space-x-1">
+                                                @for($i = 1; $i <= 5; $i++)
+                                                    <button type="button" onclick="setRating({{ $i }})" class="rating-star text-2xl text-gray-300 hover:text-yellow-400 focus:outline-none">★</button>
+                                                @endfor
+                                                <input type="hidden" name="rating" id="rating-input" required>
+                                            </div>
+                                            <div id="rating-error" class="text-red-500 text-sm mt-1 hidden">Please select a rating before submitting.</div>
+                                        </div>
+                                        <div>
+                                            <label for="comment" class="block text-sm font-medium text-gray-700">Comment (Optional)</label>
+                                            <textarea id="comment" name="comment" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                        </div>
+                                        <div class="flex items-start">
+                                            <div class="flex items-center h-5">
+                                                <input id="is_anonymous" name="is_anonymous" type="checkbox" value="1" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                            </div>
+                                            <div class="ml-3 text-sm">
+                                                <label for="is_anonymous" class="font-medium text-gray-700">Post Anonymously</label>
+                                                <p class="text-gray-500">Your name will not be displayed with this review</p>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            Submit Review
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+                    
+                    <script>
+                        function setRating(value) {
+                            document.getElementById('rating-input').value = value;
+                            const stars = document.querySelectorAll('.rating-star');
+                            stars.forEach((star, index) => {
+                                star.classList.toggle('text-yellow-400', index < value);
+                                star.classList.toggle('text-gray-300', index >= value);
+                            });
+                            document.getElementById('rating-error').classList.add('hidden');
+                        }
+
+                        function validateRating() {
+                            const ratingInput = document.getElementById('rating-input');
+                            if (!ratingInput.value) {
+                                document.getElementById('rating-error').classList.remove('hidden');
+                                return false;
+                            }
+                            return true;
+                        }
+                    </script>
                 </div>
             </div>
         </div>

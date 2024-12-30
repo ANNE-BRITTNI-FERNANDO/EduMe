@@ -15,6 +15,7 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        'seller_id',  
         'order_number',
         'subtotal',
         'delivery_fee',
@@ -53,6 +54,12 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    // Alias for user() to maintain semantic clarity
+    public function buyer(): BelongsTo
+    {
+        return $this->user();
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
@@ -82,6 +89,16 @@ class Order extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function sellerRating()
+    {
+        return $this->hasOne(SellerRating::class);
     }
 
     public function updateDeliveryStatus($status, $description = null)

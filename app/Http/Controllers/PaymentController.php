@@ -262,8 +262,11 @@ class PaymentController extends Controller
                         if (!isset($sellerOrders[$sellerId])) {
                             $sellerOrders[$sellerId] = Order::create([
                                 'user_id' => auth()->id(),
-                                'seller_id' => $sellerId,
-                                'total_amount' => 0, // Will be updated
+                                'seller_id' => $sellerId,  // Add this line
+                                'order_number' => 'ORD-' . time() . '-' . auth()->id(),
+                                'subtotal' => 0, // Will be updated
+                                'delivery_fee' => 0, // Will be updated
+                                'total' => 0, // Will be updated
                                 'delivery_address' => $metadata->delivery_address,
                                 'phone' => $metadata->phone,
                                 'status' => 'pending',
@@ -283,7 +286,9 @@ class PaymentController extends Controller
                         ]);
 
                         // Update order total
-                        $sellerOrders[$sellerId]->increment('total_amount', $item['price'] + $item['delivery_fee']);
+                        $sellerOrders[$sellerId]->increment('subtotal', $item['price']);
+                        $sellerOrders[$sellerId]->increment('delivery_fee', $item['delivery_fee']);
+                        $sellerOrders[$sellerId]->increment('total', $item['price'] + $item['delivery_fee']);
 
                         // Create delivery tracking
                         // DeliveryTracking::create([

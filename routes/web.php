@@ -1,10 +1,12 @@
 <?php
+
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\AdminBundleController;
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Seller\BundleController;
 use App\Http\Controllers\Seller\SellerDashboardController;
 use App\Http\Controllers\Seller\SellerOrderController;
@@ -13,16 +15,17 @@ use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\DeliveryTrackingController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SellerRatingController;
 use App\Models\Product;
 use App\Models\Order;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('home');
@@ -35,6 +38,8 @@ Route::get('/home', function () {
 Route::get('/doner', function () {
     return view('doner');
 })->name('doner');
+
+Route::get('/product/{product}', [ProductController::class, 'show'])->name('product.show');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard1', function () {
@@ -52,7 +57,19 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth'])->group(function () {
         Route::prefix('seller')->name('seller.')->group(function () {
             Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
+            
+            // Product routes
             Route::get('/products', [ProductController::class, 'sellerProducts'])->name('products.index');
+            Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+            Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+            Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+            Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+            Route::get('/products/{product}/resubmit', [ProductController::class, 'resubmitForm'])->name('products.resubmit.form');
+            Route::post('/products/{product}/resubmit', [ProductController::class, 'resubmit'])->name('products.resubmit');
+            Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+            Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+            Route::delete('/products/images/{image}', [ProductController::class, 'deleteImage'])->name('products.images.delete');
+
             Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
             Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
             Route::post('/orders/{order}/status', [SellerOrderController::class, 'updateDeliveryStatus'])->name('orders.update.status');
@@ -66,15 +83,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/bundles/{bundle}/edit', [BundleController::class, 'edit'])->name('bundles.edit');
             Route::put('/bundles/{bundle}', [BundleController::class, 'update'])->name('bundles.update');
             Route::delete('/bundles/{bundle}', [BundleController::class, 'destroy'])->name('bundles.destroy');
-            Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
-            Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-            Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
-            Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
-            Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
         });
     });
 
-    // Admin routes with role check
+    // All Admin routes grouped together
     Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', function() {
             if (auth()->user()->role !== 'admin') {
@@ -83,26 +95,42 @@ Route::middleware(['auth'])->group(function () {
             return app(AdminDashboardController::class)->index();
         })->name('dashboard');
 
+        // Payout Routes
+        Route::get('/payouts', [AdminPayoutController::class, 'index'])->name('payouts.index');
+        Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
+        Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
+
+        // Admin Reports Routes
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [ReportsController::class, 'index'])->name('index');
+            Route::get('/sales', [ReportsController::class, 'sales'])->name('sales');
+            Route::get('/users', [ReportsController::class, 'users'])->name('users');
+            Route::get('/products', [ReportsController::class, 'products'])->name('products');
+            Route::get('/sellers', [ReportsController::class, 'sellers'])->name('sellers');
+            Route::get('/download/{type}', [ReportsController::class, 'downloadReport'])->name('download');
+        });
+
+        // Admin Dashboard Routes
+        Route::get('/approved', [AdminDashboardController::class, 'approved'])->name('approved');
+        Route::get('/pending', [AdminDashboardController::class, 'pending'])->name('pending');
+        Route::get('/rejected', [AdminDashboardController::class, 'rejected'])->name('rejected');
+        
+        // Products
+        Route::post('/products/{id}/approve', [AdminDashboardController::class, 'approveProduct'])->name('products.approve');
+        Route::post('/products/{id}/reject', [AdminDashboardController::class, 'rejectProduct'])->name('products.reject');
+        
+        // Bundles
+        Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
+        Route::get('/bundles/{bundle}', [AdminBundleController::class, 'show'])->name('bundles.show');
+        Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
+        Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
+        
         // Orders
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
-        Route::post('/orders/{order}/update-status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
-
+        Route::post('/orders/{order}/status', [AdminOrderController::class, 'updateStatusApi'])->name('orders.update-status');
+        
         // Payouts
-        Route::prefix('payouts')->name('payouts.')->group(function () {
-            Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
-            Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
-            Route::get('/seller-balances', [AdminPayoutController::class, 'sellerBalances'])->name('seller-balances');
-            Route::get('/{payout}', [AdminPayoutController::class, 'show'])->name('show');
-            Route::post('/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
-            Route::post('/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
-            Route::post('/{payout}/complete', [AdminPayoutController::class, 'complete'])->name('complete');
-            Route::post('/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('upload-receipt');
-        });
-
-        Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
-        Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
-        Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
         Route::prefix('payouts')->name('payouts.')->group(function () {
             Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
             Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
@@ -110,17 +138,38 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{payoutRequest}', [AdminPayoutController::class, 'show'])->name('show');
             Route::post('/{payoutRequest}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
             Route::post('/{payoutRequest}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
+            Route::post('/{payout}/complete', [AdminPayoutController::class, 'complete'])->name('complete');
+            Route::post('/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('upload-receipt');
         });
+
+        // Product management routes
+        Route::get('/products', [ProductController::class, 'adminIndex'])->name('products.index');
+        Route::get('/products/{product}', [ProductController::class, 'adminShow'])->name('products.show');
+        Route::post('/products/{id}/approve', [AdminDashboardController::class, 'approveProduct'])->name('products.approve');
+        Route::post('/products/{id}/reject', [AdminDashboardController::class, 'rejectProduct'])->name('products.reject');
+
+        Route::post('/sellers/{seller}/recalculate-balance', function(Request $request, $seller) {
+            $sellerBalance = \App\Models\SellerBalance::where('seller_id', $seller)->firstOrFail();
+            $sellerBalance->recalculateBalance();
+            return back()->with('success', 'Balance recalculated successfully');
+        })->name('admin.sellers.recalculate-balance');
     });
 
     // Cart routes
-    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-    Route::get('/cart/add/product/{id}', [CartController::class, 'addProductToCart'])->name('cart.add.product');
-    Route::get('/cart/add/bundle/{id}', [CartController::class, 'addBundleToCart'])->name('cart.add.bundle');
-    Route::get('/cart/remove/product/{id}', [CartController::class, 'removeProductFromCart'])->name('cart.remove.product');
-    Route::get('/cart/remove/bundle/{id}', [CartController::class, 'removeBundleFromCart'])->name('cart.remove.bundle');
-    Route::post('/cart/update-delivery-fee', [CartController::class, 'updateDeliveryFee'])->name('cart.update-delivery-fee');
-    Route::get('/cart/get-districts/{province}', [CartController::class, 'getDistricts'])->name('cart.get-districts');
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+        Route::post('/cart/add/{product}', [CartController::class, 'addProduct'])->name('cart.add');
+        Route::post('/cart/add-bundle/{bundle}', [CartController::class, 'addBundle'])->name('cart.add.bundle');
+        Route::delete('/cart/remove/{item}', [CartController::class, 'removeItem'])->name('cart.remove');
+        Route::get('/cart/get-districts/{province}', [CartController::class, 'getDistricts'])->name('cart.districts');
+        Route::post('/cart/update-delivery', [CartController::class, 'updateDeliveryFee'])->name('cart.update.delivery');
+        Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    });
+
+    // Seller rating routes
+    Route::middleware(['auth', 'web'])->group(function () {
+        Route::post('/seller/ratings/{order}', [SellerRatingController::class, 'store'])->name('seller.ratings.store');
+    });
 
     // Stripe payment routes
     Route::post('/stripe/checkout', [StripeController::class, 'checkout'])->name('stripe.checkout');
@@ -140,9 +189,11 @@ Route::post('/messages', [ChatController::class, 'store'])->name('messages.store
 Route::post('/messages/{conversation}/mark-read', [ChatController::class, 'markAllRead'])->name('messages.markAllRead');
 
 // Profile management routes
-Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
 
 // Stripe Payment Routes
 Route::post('/checkout', [StripeController::class, 'checkout'])->name('stripe.checkout');
@@ -224,6 +275,7 @@ Route::middleware(['auth'])->group(function () {
 // Admin Bundle routes
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
+    Route::get('/bundles/{bundle}', [AdminBundleController::class, 'show'])->name('bundles.show');
     Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
     Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
 });
@@ -482,6 +534,8 @@ Route::middleware(['auth'])->group(function () {
 Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
 Route::post('/products', [ProductController::class, 'store'])->name('products.store');
 Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+Route::get('/products/{product}/resubmit', [ProductController::class, 'resubmitForm'])->name('products.resubmit.form');
+Route::post('/products/{product}/resubmit', [ProductController::class, 'resubmit'])->name('products.resubmit');
 Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
 Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
@@ -516,6 +570,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     })->name('approved');
 });
 
+// Seller Rating Routes
+Route::post('/seller/ratings/{order}', [SellerRatingController::class, 'store'])->name('seller.ratings.store');
+Route::get('/seller/ratings', [SellerRatingController::class, 'showSellerRatings'])->name('seller.ratings.index');
+Route::get('/admin/ratings', [SellerRatingController::class, 'showAdminRatings'])->name('admin.ratings.index');
+
 // routes/web.php
 
 Route::get('/seller/orders/{order}', function($orderId) {
@@ -531,16 +590,18 @@ Route::get('/seller/orders/{order}', function($orderId) {
 })->name('seller.orders.show');
 
 Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function () {
-    Route::middleware(['seller'])->group(function () {
-        // seller routes here
-    });
+    // Add any additional seller routes here
 });
 
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    Route::middleware(['admin'])->group(function () {
-        // admin routes here
-    });
+    // admin routes here
 });
 
 // Payment webhook
 Route::post('/stripe/webhook', [PaymentController::class, 'handleStripeWebhook'])->name('stripe.webhook');
+
+Route::post('/webhook/stripe', [StripeController::class, 'handleWebhook'])->name('stripe.webhook');
+
+// Delivery Tracking
+Route::get('/delivery/tracking/{order}', [DeliveryTrackingController::class, 'show'])->name('delivery.tracking.show');
+Route::post('/delivery/tracking/{order}/update', [DeliveryTrackingController::class, 'update'])->name('delivery.tracking.update');

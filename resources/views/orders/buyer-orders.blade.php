@@ -32,7 +32,12 @@
                     <!-- Orders List -->
                     <div class="space-y-4">
                         @forelse($orders as $order)
-                            <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200
+                                @if($order->delivery_status === 'pending') border-l-4 border-l-yellow-400
+                                @elseif($order->delivery_status === 'processing') border-l-4 border-l-blue-400
+                                @elseif($order->delivery_status === 'completed') border-l-4 border-l-green-400
+                                @else border-l-4 border-l-red-400
+                                @endif">
                                 <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
                                     <div>
                                         <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
@@ -43,10 +48,10 @@
                                         </p>
                                     </div>
                                     <span class="px-3 py-1 text-sm font-semibold rounded-full
-                                        @if($order->delivery_status === 'pending') bg-yellow-100 text-yellow-800
-                                        @elseif($order->delivery_status === 'processing') bg-blue-100 text-blue-800
-                                        @elseif($order->delivery_status === 'completed') bg-green-100 text-green-800
-                                        @else bg-red-100 text-red-800
+                                        @if($order->delivery_status === 'pending') bg-yellow-200 text-yellow-900 border border-yellow-300
+                                        @elseif($order->delivery_status === 'processing') bg-blue-200 text-blue-900 border border-blue-300
+                                        @elseif($order->delivery_status === 'completed') bg-green-200 text-green-900 border border-green-300
+                                        @else bg-red-200 text-red-900 border border-red-300
                                         @endif">
                                         {{ ucfirst($order->delivery_status) }}
                                     </span>

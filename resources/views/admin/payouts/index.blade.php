@@ -20,7 +20,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-yellow-800 dark:text-yellow-100 text-sm font-medium">Pending Requests</p>
-                            <p class="text-yellow-900 dark:text-yellow-50 text-2xl font-bold">{{ $stats['pending_count'] ?? 0 }}</p>
+                            <p class="text-yellow-900 dark:text-yellow-50 text-2xl font-bold">{{ $statsArray['pending_count'] ?? 0 }}</p>
                         </div>
                         <div class="text-yellow-500">
                             <i class="fas fa-clock fa-2x"></i>
@@ -33,7 +33,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-800 dark:text-blue-100 text-sm font-medium">Pending Amount</p>
-                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">LKR {{ number_format($stats['pending_amount'] ?? 0, 2) }}</p>
+                            <p class="text-blue-900 dark:text-blue-50 text-2xl font-bold">LKR {{ number_format($statsArray['pending_amount'] ?? 0, 2) }}</p>
                         </div>
                         <div class="text-blue-500">
                             <i class="fas fa-dollar-sign fa-2x"></i>
@@ -46,7 +46,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-green-800 dark:text-green-100 text-sm font-medium">Completed Payouts</p>
-                            <p class="text-green-900 dark:text-green-50 text-2xl font-bold">{{ $stats['completed_count'] ?? 0 }}</p>
+                            <p class="text-green-900 dark:text-green-50 text-2xl font-bold">{{ $statsArray['completed_count'] ?? 0 }}</p>
                         </div>
                         <div class="text-green-500">
                             <i class="fas fa-check-circle fa-2x"></i>
@@ -59,7 +59,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-purple-800 dark:text-purple-100 text-sm font-medium">Total Paid</p>
-                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">LKR {{ number_format($stats['completed_amount'] ?? 0, 2) }}</p>
+                            <p class="text-purple-900 dark:text-purple-50 text-2xl font-bold">LKR {{ number_format($statsArray['completed_amount'] ?? 0, 2) }}</p>
                         </div>
                         <div class="text-purple-500">
                             <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -124,13 +124,17 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{{ $payout->created_at->format('M d, Y') }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <form action="{{ route('admin.payouts.approve', $payout->id) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="text-green-600 hover:text-green-900 mr-3">Approve</button>
-                                            </form>
-                                            <button onclick="showRejectModal({{ $payout->id }})" class="text-red-600 hover:text-red-900">
-                                                Reject
-                                            </button>
+                                            <div class="flex space-x-2">
+                                                <form action="{{ route('admin.payouts.approve', $payout->id) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                                <button onclick="showRejectModal('{{ $payout->id }}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">
+                                                    Reject
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     @endforeach
@@ -331,18 +335,18 @@
     <div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
             <div class="mt-3">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-2">Reject Payout Request</h3>
-                <form id="rejectForm" action="" method="POST">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Reject Payout Request</h3>
+                <form id="rejectForm" method="POST" class="mt-4">
                     @csrf
-                    <div class="mt-2 px-7 py-3">
-                        <label for="rejection_reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason for Rejection</label>
-                        <textarea name="rejection_reason" id="rejection_reason" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" required></textarea>
+                    <div class="mb-4">
+                        <label for="rejection_reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Rejection Reason</label>
+                        <textarea name="rejection_reason" id="rejection_reason" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required></textarea>
                     </div>
-                    <div class="px-4 py-3 text-right">
-                        <button type="button" onclick="closeRejectModal()" class="mr-2 px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideRejectModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
                             Cancel
                         </button>
-                        <button type="submit" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300">
+                        <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                             Reject
                         </button>
                     </div>
@@ -421,12 +425,15 @@
 
         // Reject Modal
         function showRejectModal(payoutId) {
-            document.getElementById('rejectForm').action = `/admin/payouts/${payoutId}/reject`;
-            document.getElementById('rejectModal').classList.remove('hidden');
+            const modal = document.getElementById('rejectModal');
+            const form = document.getElementById('rejectForm');
+            form.action = `/admin/payouts/${payoutId}/reject`;
+            modal.classList.remove('hidden');
         }
 
-        function closeRejectModal() {
-            document.getElementById('rejectModal').classList.add('hidden');
+        function hideRejectModal() {
+            const modal = document.getElementById('rejectModal');
+            modal.classList.add('hidden');
         }
 
         function showCompleteModal(payoutId) {
