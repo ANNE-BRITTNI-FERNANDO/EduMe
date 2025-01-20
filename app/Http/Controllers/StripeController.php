@@ -223,11 +223,10 @@ class StripeController extends Controller
                         // Create the order
                         $order = Order::create([
                             'user_id' => $userId,
-                            'seller_id' => $sellerId,
                             'subtotal' => $sellerOrder['total'],
                             'total_amount' => $sellerOrder['total'] + $sellerDeliveryFee,
                             'delivery_fee' => $sellerDeliveryFee,
-                            'status' => 'confirmed',
+                            'delivery_status' => 'confirmed',
                             'confirmed_at' => now(),
                             'payment_status' => 'completed',
                             'payment_id' => $session->payment_intent,

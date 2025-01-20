@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Delivery;
 
+use App\Http\Controllers\Controller;
 use App\Models\DeliveryTracking;
 use App\Models\Order;
 use Illuminate\Http\Request;

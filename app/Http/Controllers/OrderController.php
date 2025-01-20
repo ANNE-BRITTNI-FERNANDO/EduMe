@@ -13,6 +13,7 @@ use App\Services\PayoutService;
 use App\Models\Warehouse;
 use App\Models\SellerBalance;
 use App\Services\SellerBalanceService;
+use App\Models\BudgetTracking;
 
 class OrderController extends Controller
 {
@@ -183,9 +184,8 @@ class OrderController extends Controller
     {
         $user = auth()->user();
         
-        // Check if user is either buyer or seller of this order through order items
-        if ($order->user_id !== $user->id && 
-            !$order->items()->where('seller_id', $user->id)->exists()) {
+        // Check if user is either buyer or seller of this order
+        if ($order->user_id !== $user->id && $order->seller_id !== $user->id) {
             abort(403);
         }
         
@@ -194,16 +194,11 @@ class OrderController extends Controller
             'user',
             'items.seller',
             'items.item',
-            'warehouse'
+            'warehouse',
+            'sellerRating'
         ]);
         
-        // Get the first seller from order items
-        $seller = $order->items->first()->seller;
-        
-        // Get available warehouses for seller
-        $warehouses = Warehouse::where('pickup_available', true)->get();
-        
-        return view('orders.show', compact('order', 'seller', 'warehouses'));
+        return view('orders.show', compact('order'));
     }
 
     public function adminIndex()
@@ -368,6 +363,27 @@ class OrderController extends Controller
 
         if ($itemsInOrders) {
             return redirect()->back()->with('error', 'Some items in your cart have already been ordered. Please refresh your cart.');
+        }
+
+        // Check if user has active budget tracking
+        $budgetTracking = BudgetTracking::where('user_id', $user->id)
+            ->where('cycle_end_date', '>', now())
+            ->first();
+
+        if ($budgetTracking) {
+            // Check if order amount exceeds remaining budget
+            $totalAmount = $cartItems->sum(function($item) {
+                return $item->item->price * $item->quantity;
+            });
+
+            if (!$budgetTracking->hasEnoughBudget($totalAmount)) {
+                return back()->with('error', 'This order exceeds your remaining budget. Current remaining budget: $' . number_format($budgetTracking->remaining_amount, 2));
+            }
+
+            // Deduct from budget
+            if (!$budgetTracking->deductFromBudget($totalAmount)) {
+                return back()->with('error', 'Unable to process order due to budget constraints.');
+            }
         }
 
         \DB::beginTransaction();

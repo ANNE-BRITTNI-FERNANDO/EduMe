@@ -3,248 +3,311 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DonationItem;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\PayoutRequest;
-use App\Models\Order;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (!auth()->check() || auth()->user()->role !== 'admin') {
+                return redirect()->route('login');
+            }
+            return $next($request);
+        });
+    }
+
     public function index()
     {
         try {
-            // Get pending products
-            $products = Product::query()
-                ->where(function($query) {
-                    $query->where('is_approved', false)
-                          ->where('is_rejected', false);
-                })
-                ->with('user')
+            $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+            $totalOrders = Order::count();
+            $totalProducts = Product::count();
+            $totalUsers = User::count();
+            $pendingOrders = Order::where('status', 'pending')->count();
+            $recentOrders = Order::with(['user', 'items.item'])
                 ->latest()
+                ->take(5)
                 ->get();
 
-            // Get rejected payouts
+            $recentActivities = collect();
+            
+            // Get recent orders
+            $recentOrderActivities = Order::select('id', 'created_at')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function($order) {
+                    return (object)[
+                        'type' => 'order',
+                        'description' => "New order #$order->id created",
+                        'created_at' => $order->created_at
+                    ];
+                });
+            $recentActivities = $recentActivities->concat($recentOrderActivities);
+
+            // Get recent products
+            $recentProductActivities = Product::select('id', 'product_name', 'created_at')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function($product) {
+                    return (object)[
+                        'type' => 'product',
+                        'description' => "New product '$product->product_name' added",
+                        'created_at' => $product->created_at
+                    ];
+                });
+            $recentActivities = $recentActivities->concat($recentProductActivities);
+
+            // Get recent users
+            $recentUserActivities = User::select('id', 'name', 'created_at')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function($user) {
+                    return (object)[
+                        'type' => 'user',
+                        'description' => "New user '$user->name' registered",
+                        'created_at' => $user->created_at
+                    ];
+                });
+            $recentActivities = $recentActivities->concat($recentUserActivities);
+
+            // Sort all activities by created_at
+            $recentActivities = $recentActivities->sortByDesc('created_at')->take(10);
+
             $rejectedPayouts = PayoutRequest::where('status', 'rejected')
                 ->with('user')
                 ->latest()
+                ->take(5)
                 ->get();
 
-            // Initialize order statistics with default values
-            $totalOrders = 0;
-            $pendingOrders = 0;
-            $completedOrders = 0;
-            $totalRevenue = 0;
-            $recentOrders = collect();
-
-            // Get order statistics
-            try {
-                $totalOrders = Order::count();
-                $pendingOrders = Order::whereIn('delivery_status', ['pending', 'processing'])->count();
-                $completedOrders = Order::where('delivery_status', 'completed')->count();
-                
-                // Calculate total revenue from all order items regardless of delivery status
-                $totalRevenue = DB::table('orders')
-                    ->join('order_items', 'orders.id', '=', 'order_items.order_id')
-                    ->sum(DB::raw('order_items.price * order_items.quantity'));
-
-                // Get recent orders
-                $recentOrders = Order::with(['user', 'items.item'])
-                    ->latest()
-                    ->take(5)
-                    ->get();
-
-                // Get monthly revenue data for the past 6 months
-                $monthlyRevenue = DB::table('orders')
-                    ->join('order_items', 'orders.id', '=', 'order_items.order_id')
-                    ->where('orders.created_at', '>=', Carbon::now()->subMonths(6))
-                    ->select(
-                        DB::raw('MONTH(orders.created_at) as month'),
-                        DB::raw('YEAR(orders.created_at) as year'),
-                        DB::raw('SUM(order_items.price * order_items.quantity) as total')
-                    )
-                    ->groupBy('year', 'month')
-                    ->orderBy('year', 'desc')
-                    ->orderBy('month', 'desc')
-                    ->get();
-
-                // Get order status counts
-                $orderStatusCounts = Order::select('delivery_status', DB::raw('count(*) as count'))
-                    ->groupBy('delivery_status')
-                    ->get()
-                    ->pluck('count', 'delivery_status')
-                    ->toArray();
-
-            } catch (\Exception $e) {
-                \Log::error('Error fetching order statistics: ' . $e->getMessage());
-            }
-
             return view('admin.dashboard', compact(
-                'products',
-                'rejectedPayouts',
-                'totalOrders',
-                'pendingOrders',
-                'completedOrders',
                 'totalRevenue',
+                'totalOrders',
+                'totalProducts',
+                'totalUsers',
+                'pendingOrders',
                 'recentOrders',
-                'monthlyRevenue',
-                'orderStatusCounts'
+                'recentActivities',
+                'rejectedPayouts'
             ));
         } catch (\Exception $e) {
-            \Log::error('Error in admin dashboard: ' . $e->getMessage());
-            return view('admin.dashboard')->with('error', 'Error loading dashboard data');
+            return back()->with('error', 'Error loading dashboard: ' . $e->getMessage());
         }
-    }
-
-    public function approved()
-    {
-        // Only get products that have been explicitly approved
-        $products = Product::where('is_approved', true)
-            ->where('is_rejected', false)
-            ->where('status', '=', 'approved')  // Only get products with status 'approved'
-            ->with(['user', 'productImages'])
-            ->latest()
-            ->get();
-        
-        return view('admin.approved', ['products' => $products]);
-    }
-
-    public function rejected()
-    {
-        $products = Product::where('is_rejected', true)
-            ->with('user')
-            ->latest()
-            ->get();
-        
-        return view('admin.rejected', ['products' => $products]);
-    }
-
-    public function pending()
-    {
-        $query = Product::where(function($query) {
-            $query->where(function($q) {
-                // Get products that are pending initial review
-                $q->where('status', 'pending')
-                  ->where('is_approved', false)
-                  ->where('is_rejected', false);
-            })->orWhere(function($q) {
-                // Get resubmitted products
-                $q->where('status', 'resubmitted') // Products that have been resubmitted will have this status
-                  ->where('is_approved', false)
-                  ->where('is_rejected', false);
-            });
-        })->with(['user', 'productImages']);
-
-        // Add some debugging
-        \Log::info('Pending Products Query:', [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-            'count' => $query->count()
-        ]);
-
-        // Apply sorting
-        $sort = request('sort', 'latest');
-        switch ($sort) {
-            case 'price_high':
-                $query->orderBy('price', 'desc');
-                break;
-            case 'price_low':
-                $query->orderBy('price', 'asc');
-                break;
-            case 'oldest':
-                $query->oldest();
-                break;
-            case 'latest':
-            default:
-                $query->latest();
-                break;
-        }
-
-        // Apply category filter if provided
-        if (request()->has('category') && request('category') !== 'all') {
-            $query->where('category', request('category'));
-        }
-
-        $products = $query->paginate(10);
-        
-        // Debug the results
-        \Log::info('Pending Products:', [
-            'total' => $products->total(),
-            'products' => $products->map(function($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->product_name,
-                    'status' => $product->status,
-                    'is_approved' => $product->is_approved,
-                    'is_rejected' => $product->is_rejected,
-                    'rejection_reason' => $product->rejection_reason
-                ];
-            })
-        ]);
-
-        $categories = Product::distinct()->pluck('category');
-
-        return view('admin.pending', [
-            'products' => $products,
-            'categories' => $categories,
-            'currentSort' => $sort,
-            'currentCategory' => request('category', 'all')
-        ]);
     }
 
     public function approveProduct($id)
     {
-        try {
-            $product = Product::findOrFail($id);
-            
-            // Update product status
-            $product->status = 'approved';
-            $product->is_approved = true;
-            $product->is_rejected = false;
-            $product->rejection_reason = null;
-            $product->rejection_note = null;
-            $product->approved_at = now();
-            $product->save();
+        $product = Product::findOrFail($id);
+        $product->status = 'approved';
+        $product->is_approved = true;
+        $product->is_rejected = false;
+        $product->rejection_reason = null;
+        $product->rejection_note = null;
+        $product->approved_at = now();
+        $product->save();
 
-            // Notify the seller
-            $product->user->notify(new \App\Notifications\ProductApproved($product));
-
-            return redirect()->back()->with('success', 'Product has been approved successfully.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error approving product: ' . $e->getMessage());
-        }
+        return redirect()->back()->with('success', 'Product approved successfully!');
     }
 
-    public function rejectProduct($id)
+    /**
+     * Display pending products (legacy route).
+     */
+    public function pending(Request $request)
     {
-        try {
-            $product = Product::findOrFail($id);
-            
-            // Validate rejection reason
-            request()->validate([
-                'rejection_reason' => 'required|string',
-                'rejection_note' => 'nullable|string'
-            ]);
-
-            // Update product status
-            $product->status = 'rejected';
-            $product->is_approved = false;
-            $product->is_rejected = true;
-            $product->rejection_reason = request('rejection_reason');
-            $product->rejection_note = request('rejection_note');
-            $product->save();
-
-            // Notify the seller
-            try {
-                $product->user->notify(new \App\Notifications\ProductRejected($product));
-            } catch (\Exception $e) {
-                \Log::error('Failed to send product rejection notification: ' . $e->getMessage());
-            }
-
-            return redirect()->back()->with('success', 'Product has been rejected.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error rejecting product: ' . $e->getMessage());
+        $currentSort = $request->query('sort', 'latest');
+        $categories = [
+            'textbooks' => 'Textbooks',
+            'stationery' => 'Stationery',
+            'devices' => 'Electronic Devices',
+            'other' => 'Other'
+        ];
+        
+        $query = Product::where('status', 'pending')
+                       ->where('is_approved', false)
+                       ->where('is_rejected', false)
+                       ->with('user');
+        
+        // Apply category filter
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
         }
+        
+        // Apply sorting
+        switch ($currentSort) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'oldest':
+                $query->oldest();
+                break;
+            default: // 'latest'
+                $query->latest();
+                break;
+        }
+        
+        $products = $query->paginate(10);
+    
+        return view('admin.pending', compact('products', 'currentSort', 'categories'));
+    }
+
+    /**
+     * Display pending products.
+     */
+    public function pendingProducts()
+    {
+        return $this->pending();
+    }
+    
+    /**
+     * Display approved products.
+     */
+    public function approved(Request $request)
+    {
+        $currentSort = $request->query('sort', 'latest');
+        $categories = [
+            'textbooks' => 'Textbooks',
+            'stationery' => 'Stationery',
+            'devices' => 'Electronic Devices',
+            'other' => 'Other'
+        ];
+        
+        $query = Product::where('status', 'approved')
+                       ->where('is_approved', true)
+                       ->where('is_rejected', false)
+                       ->with('user');
+        
+        // Apply category filter
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
+        }
+        
+        // Apply sorting
+        switch ($currentSort) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'oldest':
+                $query->oldest();
+                break;
+            default: // 'latest'
+                $query->latest();
+                break;
+        }
+        
+        $products = $query->paginate(10);
+    
+        return view('admin.approved', compact('products', 'currentSort', 'categories'));
+    }
+
+    /**
+     * Display approved products (legacy route).
+     */
+    public function approvedProducts(Request $request)
+    {
+        return $this->approved($request);
+    }
+    
+    /**
+     * Display rejected products.
+     */
+    public function rejected(Request $request)
+    {
+        $currentSort = $request->query('sort', 'latest');
+        $categories = [
+            'textbooks' => 'Textbooks',
+            'stationery' => 'Stationery',
+            'devices' => 'Electronic Devices',
+            'other' => 'Other'
+        ];
+        
+        $query = Product::where('status', 'rejected')
+                       ->where('is_approved', false)
+                       ->where('is_rejected', true)
+                       ->with('user');
+        
+        // Apply category filter
+        if ($request->has('category') && $request->category !== 'all') {
+            $query->where('category', $request->category);
+        }
+        
+        // Apply sorting
+        switch ($currentSort) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'oldest':
+                $query->oldest();
+                break;
+            default: // 'latest'
+                $query->latest();
+                break;
+        }
+        
+        $products = $query->paginate(10);
+    
+        return view('admin.rejected', compact('products', 'currentSort', 'categories'));
+    }
+
+    /**
+     * Display rejected products (new route).
+     */
+    public function rejectedProducts(Request $request)
+    {
+        return $this->rejected($request);
+    }
+    
+    /**
+     * Reject a product.
+     */
+    public function rejectProduct(Request $request, $id)
+    {
+        $request->validate([
+            'rejection_reason' => 'required|string',
+            'rejection_note' => 'nullable|string'
+        ]);
+
+        $product = Product::findOrFail($id);
+        $product->status = 'rejected';
+        $product->is_approved = false;
+        $product->is_rejected = true;
+        $product->rejection_reason = $request->rejection_reason;
+        $product->rejection_note = $request->rejection_note;
+        $product->approved_at = null;
+        $product->save();
+
+        return redirect()->back()->with('success', 'Product rejected successfully!');
+    }
+
+
+
+    public function viewDonations()
+    {
+        $itemDonations = DonationItem::with('user')->latest()->get();
+
+        return view('admin.donations.index', compact('itemDonations'));
+    }
+
+    public function donationDetails($id)
+    {
+        $donation = DonationItem::with('user')->findOrFail($id);
+        
+        return view('admin.donations.show', compact('donation'));
     }
 }

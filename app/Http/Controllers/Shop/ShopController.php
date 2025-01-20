@@ -1,10 +1,11 @@
 <?php
 
-// app/Http/Controllers/ShopController.php
-namespace App\Http\Controllers;
+// app/Http/Controllers/Shop/ShopController.php
+namespace App\Http\Controllers\Shop;
 
-use App\Models\Bundle; // Import your Bundle model
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Bundle; // Import your Bundle model
 
 class ShopController extends Controller
 {

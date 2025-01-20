@@ -401,18 +401,17 @@ class ProductController extends Controller
             $query->orderBy('created_at', $request->sort_date);
         }
 
-        // Get products with their sellers
-        $approvedProducts = $query->with('user')->get();
-
         // Sort by location if buyer location is available and no specific location is selected
         if ($buyerLocation && !$request->filled('location')) {
-            $approvedProducts = $approvedProducts->sortBy(function($product) use ($buyerLocation) {
-                if (!$product->user || !$product->user->location) {
-                    return PHP_FLOAT_MAX;
-                }
-                return $this->calculateLocationDistance($buyerLocation, $product->user->location);
-            });
+            $query->orderByRaw("CASE 
+                WHEN user_id IN (SELECT id FROM users WHERE location = ? ) THEN 0
+                WHEN user_id IN (SELECT id FROM users WHERE location LIKE ? ) THEN 1
+                ELSE 2 END", 
+                [$buyerLocation, "%$buyerLocation%"]);
         }
+
+        // Get products with their sellers
+        $approvedProducts = $query->with('user')->paginate(12);
 
         return view('productlisting', compact('approvedProducts', 'categories', 'locations'));
     }
@@ -550,17 +549,17 @@ class ProductController extends Controller
             $query->orderBy('created_at', $request->sort_date);
         }
 
-        // Get all products
-        $products = $query->with('user')->get();
-
         // Sort by location if buyer location is available
         if ($buyerLocation) {
-            $products = $products->sort(function($a, $b) use ($buyerLocation) {
-                $distanceA = $this->calculateDistance($buyerLocation, $a->user->location);
-                $distanceB = $this->calculateDistance($buyerLocation, $b->user->location);
-                return $distanceA <=> $distanceB;
-            });
+            $query->orderByRaw("CASE 
+                WHEN user_id IN (SELECT id FROM users WHERE location = ? ) THEN 0
+                WHEN user_id IN (SELECT id FROM users WHERE location LIKE ? ) THEN 1
+                ELSE 2 END", 
+                [$buyerLocation, "%$buyerLocation%"]);
         }
+
+        // Get all products
+        $products = $query->with('user')->paginate(12);
 
         $categories = [
             'Textbooks & Reference Books',

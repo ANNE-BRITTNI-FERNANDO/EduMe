@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Models\Bundle;
 use App\Notifications\BundleStatusUpdated;
 use Illuminate\Http\Request;
@@ -167,9 +168,8 @@ class AdminBundleController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Bundle $bundle)
     {
-        $bundle = Bundle::with(['categories', 'user'])->findOrFail($id);
         return view('admin.bundles.show', compact('bundle'));
     }
 
