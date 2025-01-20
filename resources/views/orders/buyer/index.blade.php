@@ -30,7 +30,7 @@
                     @else
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Order Details</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Seller</th>
@@ -38,25 +38,25 @@
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200 dark:divide-gray-600">
+                                <tbody class="divide-y divide-gray-200 dark:divide-gray-600">
                                     @foreach($orders as $order)
-                                        <tr>
+                                        <tr class="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800">
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="flex items-center">
                                                     <div>
                                                         <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                                             Order #{{ $order->order_number }}
                                                         </div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                        <div class="text-sm text-gray-600 dark:text-gray-400">
                                                             {{ $order->created_at->format('M d, Y') }}
                                                         </div>
-                                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
                                                             LKR {{ number_format($order->total_amount, 2) }}
                                                         </div>
-                                                        <div class="mt-2">
+                                                        <div class="mt-2 space-y-1">
                                                             @foreach($order->items as $item)
                                                                 <div class="text-sm text-gray-600 dark:text-gray-300">
-                                                                    {{ $item->name }} - LKR {{ number_format($item->price, 2) }}
+                                                                    {{ $item->name }} - <span class="font-medium">LKR {{ number_format($item->price, 2) }}</span>
                                                                 </div>
                                                             @endforeach
                                                         </div>
@@ -64,22 +64,31 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                @foreach($order->items->groupBy('seller_id') as $sellerId => $items)
-                                                    <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                        {{ $items->first()->seller->name }}
-                                                    </div>
-                                                @endforeach
+                                                <div class="text-sm text-gray-900 dark:text-gray-300">
+                                                    @foreach($order->items->groupBy('seller_id') as $sellerId => $items)
+                                                        @if($items->first()->seller)
+                                                            {{ $items->first()->seller->name }}
+                                                        @else
+                                                            <span class="text-gray-500 dark:text-gray-400">Seller not available</span>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                    @if($order->delivery_status === 'delivered') bg-green-100 text-green-800
-                                                    @elseif($order->delivery_status === 'processing') bg-yellow-100 text-yellow-800
-                                                    @else bg-gray-100 text-gray-800 @endif">
-                                                    {{ ucfirst($order->delivery_status) }}
+                                                <span class="px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm
+                                                    @if($order->status === 'confirmed') bg-green-500 text-white dark:bg-green-600
+                                                    @elseif($order->status === 'cancelled') bg-red-500 text-white dark:bg-red-600
+                                                    @elseif($order->status === 'completed') bg-blue-500 text-white dark:bg-blue-600
+                                                    @else bg-yellow-500 text-white dark:bg-yellow-600
+                                                    @endif">
+                                                    {{ ucfirst($order->status) }}
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                <a href="{{ route('orders.show', $order) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">View Details</a>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <a href="{{ route('orders.show', $order->id) }}" 
+                                                   class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-semibold">
+                                                    View Details
+                                                </a>
                                             </td>
                                         </tr>
                                     @endforeach

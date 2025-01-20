@@ -7,6 +7,7 @@ use App\Notifications\PayoutStatusChanged;
 use Illuminate\Support\Facades\DB;
 use App\Models\OrderItem;
 use App\Models\User;
+use App\Models\SellerBalance;
 
 class PayoutRequest extends Model
 {
@@ -71,7 +72,8 @@ class PayoutRequest extends Model
     public function approve($adminId, $notes = null)
     {
         return DB::transaction(function () use ($adminId, $notes) {
-            if ($this->status !== self::STATUS_PENDING) {
+            // Allow approval if status is null (new request) or pending
+            if ($this->status !== self::STATUS_PENDING && $this->status !== null) {
                 throw new \Exception('Only pending requests can be approved');
             }
 
@@ -83,7 +85,9 @@ class PayoutRequest extends Model
             $this->save();
 
             // Send notification
-            $this->user->notify(new PayoutStatusChanged($this));
+            if ($this->user) {
+                $this->user->notify(new PayoutStatusChanged($this));
+            }
 
             return true;
         });
@@ -116,20 +120,26 @@ class PayoutRequest extends Model
     public function reject($adminId, $reason)
     {
         return DB::transaction(function () use ($adminId, $reason) {
-            if ($this->status !== self::STATUS_PENDING) {
+            // Allow rejection if status is null (new request) or pending
+            if ($this->status !== self::STATUS_PENDING && $this->status !== null) {
                 throw new \Exception('Only pending requests can be rejected');
             }
 
-            $sellerBalance = $this->user->sellerBalance;
-            $sellerBalance->returnToPending($this->amount);
+            if ($this->user && $this->user->sellerBalance) {
+                $sellerBalance = $this->user->sellerBalance;
+                $sellerBalance->returnToPending($this->amount);
+            }
 
             $this->status = self::STATUS_REJECTED;
             $this->processed_by = $adminId;
             $this->rejection_reason = $reason;
+            $this->processed_at = now();
             $this->save();
 
             // Send notification
-            $this->user->notify(new PayoutStatusChanged($this));
+            if ($this->user) {
+                $this->user->notify(new PayoutStatusChanged($this));
+            }
 
             return $this;
         });
@@ -155,6 +165,38 @@ class PayoutRequest extends Model
             $this->user->notify(new PayoutStatusChanged($this));
 
             return $this;
+        });
+    }
+
+    public function updateSellerBalance($status)
+    {
+        $sellerBalance = SellerBalance::where('seller_id', $this->seller_id)->first();
+        if (!$sellerBalance) {
+            $sellerBalance = SellerBalance::create([
+                'seller_id' => $this->seller_id,
+                'available_balance' => 0,
+                'pending_balance' => 0,
+                'total_earned' => 0
+            ]);
+        }
+        
+        return $sellerBalance->processPayout($this->amount, $status);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($payout) {
+            // When creating a new payout request, update seller balance
+            $payout->updateSellerBalance('pending');
+        });
+
+        static::updating(function ($payout) {
+            if ($payout->isDirty('status')) {
+                // When status changes, update seller balance
+                $payout->updateSellerBalance($payout->status);
+            }
         });
     }
 

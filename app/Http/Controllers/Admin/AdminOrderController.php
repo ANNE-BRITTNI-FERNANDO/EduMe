@@ -19,7 +19,7 @@ class AdminOrderController extends Controller
                 'orders.user_id',
                 'orders.delivery_status',
                 'orders.payment_status',
-                DB::raw('ROUND(orders.total_amount, 0) as total_amount'), // Round to remove decimals
+                DB::raw('ROUND(orders.total_amount - orders.delivery_fee, 0) as total_amount'), // Exclude delivery fee
                 'orders.created_at',
                 'orders.updated_at'
             ]);
@@ -55,9 +55,11 @@ class AdminOrderController extends Controller
 
         // Get statistics
         $totalOrders = Order::count();
-        $pendingOrders = Order::where('delivery_status', 'pending')->count();
-        $completedOrders = Order::where('delivery_status', 'completed')->count();
-        $totalRevenue = Order::sum('total_amount');
+        // Update pending orders to include all non-completed orders
+        $pendingOrders = Order::whereNotIn('delivery_status', ['completed', 'delivered'])->count();
+        $completedOrders = Order::whereIn('delivery_status', ['completed', 'delivered'])->count();
+        // Calculate total revenue excluding delivery fees
+        $totalRevenue = Order::sum(DB::raw('total_amount - delivery_fee'));
 
         // Get all sellers for the dropdown
         $sellers = User::where('role', 'seller')->get();
@@ -93,5 +95,27 @@ class AdminOrderController extends Controller
         $order->save();
 
         return redirect()->back()->with('success', 'Order status updated successfully');
+    }
+
+    /**
+     * Update the status of an order
+     */
+    public function updateStatusApi(Request $request, Order $order)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,processing,completed,cancelled,refunded'
+        ]);
+
+        $order->update([
+            'status' => $request->status
+        ]);
+
+        // Notify the user about the status change
+        $order->user->notify(new OrderStatusUpdated($order));
+
+        return response()->json([
+            'message' => 'Order status updated successfully',
+            'status' => $order->status
+        ]);
     }
 }

@@ -17,8 +17,20 @@ class SellerEarningsController extends Controller
     {
         $seller = auth()->user();
         
-        // Get seller balance from the table
-        $balance = SellerBalance::where('seller_id', $seller->id)->firstOrFail();
+        // Get or create seller balance
+        $balance = SellerBalance::firstOrCreate(
+            ['seller_id' => $seller->id],
+            [
+                'total_earned' => 0,
+                'balance_to_be_paid' => 0,
+                'available_balance' => 0,
+                'pending_balance' => 0
+            ]
+        );
+
+        // Recalculate balance to ensure it's up to date
+        $balance->recalculateBalance();
+        $balance->refresh(); // Refresh to get the latest values
 
         // Get pending payout total
         $pendingPayouts = PayoutRequest::where('seller_id', $seller->id)
@@ -33,7 +45,7 @@ class SellerEarningsController extends Controller
         // Get recent transactions
         $recentTransactions = OrderItem::where('seller_id', $seller->id)
             ->whereHas('order', function($query) {
-                $query->whereIn('delivery_status', ['completed', 'delivered', 'confirmed', 'delivered_to_warehouse', 'dispatched']);
+                $query->whereIn('delivery_status', ['processing', 'confirmed', 'delivered_to_warehouse']);
             })
             ->with(['order' => function($query) {
                 $query->select('id', 'delivery_status', 'created_at');
@@ -56,39 +68,31 @@ class SellerEarningsController extends Controller
         ]);
 
         $seller = auth()->user();
-        $availableBalance = $this->getAvailableBalance($seller->id);
         
-        if ($request->amount > $availableBalance) {
-            return back()->with('error', 'Requested amount (LKR ' . number_format($request->amount, 2) . ') exceeds available balance (LKR ' . number_format($availableBalance, 2) . ').');
+        // Get seller balance
+        $balance = SellerBalance::where('seller_id', $seller->id)->firstOrFail();
+
+        // Check if amount is available
+        if ($request->amount > $balance->available_balance) {
+            return back()->withErrors(['amount' => 'Insufficient balance']);
         }
 
-        DB::beginTransaction();
-        try {
-            // Create payout request
-            $payoutRequest = PayoutRequest::create([
-                'seller_id' => $seller->id,
-                'user_id' => $seller->id,
-                'amount' => $request->amount,
-                'bank_name' => $request->bank_name,
-                'account_number' => $request->account_number,
-                'account_holder_name' => $request->account_holder_name,
-                'status' => 'pending'
-            ]);
+        // Create payout request
+        $payoutRequest = new PayoutRequest();
+        $payoutRequest->seller_id = $seller->id;
+        $payoutRequest->user_id = $seller->id;
+        $payoutRequest->amount = $request->amount;
+        $payoutRequest->bank_name = $request->bank_name;
+        $payoutRequest->account_number = $request->account_number;
+        $payoutRequest->account_holder_name = $request->account_holder_name;
+        $payoutRequest->status = 'pending';
+        $payoutRequest->save();
 
-            // Update seller balance in database
-            DB::statement("
-                UPDATE seller_balances 
-                SET available_balance = ? 
-                WHERE seller_id = ?
-            ", [$availableBalance - $request->amount, $seller->id]);
+        // Update seller balance
+        $balance->pending_balance += $request->amount;
+        $balance->save();
 
-            DB::commit();
-            return redirect()->route('seller.earnings.index')->with('success', 'Payout request submitted successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Payout request failed: ' . $e->getMessage());
-            return back()->with('error', 'Failed to submit payout request. Please try again.');
-        }
+        return back()->with('success', 'Payout request submitted successfully');
     }
 
     public function toggleDetails(Request $request)
@@ -119,28 +123,5 @@ class SellerEarningsController extends Controller
         }
 
         return Storage::disk('public')->download($payout->receipt_path, 'payout_receipt_' . $payout->id . '.' . pathinfo($payout->receipt_path, PATHINFO_EXTENSION));
-    }
-
-    private function getAvailableBalance($sellerId)
-    {
-        // Calculate total earnings from completed orders
-        $totalEarnings = DB::selectOne("
-            SELECT COALESCE(SUM(oi.price * oi.quantity), 0) as total
-            FROM order_items oi
-            INNER JOIN orders o ON oi.order_id = o.id
-            WHERE oi.seller_id = ?
-            AND o.delivery_status IN ('completed', 'delivered', 'confirmed', 'delivered_to_warehouse', 'dispatched')
-        ", [$sellerId])->total;
-
-        // Get total payouts (completed/pending)
-        $totalPayouts = DB::selectOne("
-            SELECT COALESCE(SUM(amount), 0) as total
-            FROM payout_requests
-            WHERE seller_id = ?
-            AND status IN ('completed', 'pending')
-        ", [$sellerId])->total;
-
-        // Available balance is earnings minus payouts
-        return $totalEarnings - $totalPayouts;
     }
 }

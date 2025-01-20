@@ -13,8 +13,8 @@ class EarningsController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $sellerBalance = SellerBalance::firstOrCreate(
-            ['user_id' => $user->id],
+        $balance = SellerBalance::firstOrCreate(
+            ['seller_id' => $user->id],
             [
                 'available_balance' => 0,
                 'pending_balance' => 0,
@@ -22,28 +22,30 @@ class EarningsController extends Controller
             ]
         );
 
-        $recentPayouts = PayoutRequest::where('user_id', $user->id)
+        // Get pending payouts amount
+        $pendingPayouts = PayoutRequest::where('seller_id', $user->id)
+            ->where('status', 'pending')
+            ->sum('amount');
+
+        // Get approved payouts amount
+        $approvedPayouts = PayoutRequest::where('seller_id', $user->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        $recentPayouts = PayoutRequest::where('seller_id', $user->id)
             ->latest()
-            ->paginate(5);
+            ->take(5)
+            ->get();
 
-        $stats = [
-            'total_earned' => $sellerBalance->total_earned,
-            'available_balance' => $sellerBalance->available_balance,
-            'pending_balance' => $sellerBalance->pending_balance,
-            'pending_payouts' => PayoutRequest::where('user_id', $user->id)
-                ->where('status', 'pending')
-                ->count(),
-            'completed_payouts' => PayoutRequest::where('user_id', $user->id)
-                ->where('status', 'completed')
-                ->count(),
-        ];
+        // Recalculate balance to ensure it's accurate
+        $balance->recalculateBalance();
 
-        return view('seller.earnings.index', compact('sellerBalance', 'recentPayouts', 'stats'));
+        return view('seller.earnings.index', compact('balance', 'pendingPayouts', 'approvedPayouts', 'recentPayouts'));
     }
 
     public function history()
     {
-        $payouts = PayoutRequest::where('user_id', auth()->id())
+        $payouts = PayoutRequest::where('seller_id', auth()->id())
             ->latest()
             ->paginate(10);
 
@@ -60,7 +62,7 @@ class EarningsController extends Controller
         ]);
 
         $user = auth()->user();
-        $sellerBalance = SellerBalance::where('user_id', $user->id)->first();
+        $sellerBalance = SellerBalance::where('seller_id', $user->id)->first();
 
         if (!$sellerBalance || $sellerBalance->available_balance < $request->amount) {
             return back()->with('error', 'Insufficient available balance.');
@@ -70,7 +72,7 @@ class EarningsController extends Controller
             DB::transaction(function () use ($request, $user, $sellerBalance) {
                 // Create payout request
                 $payoutRequest = new PayoutRequest([
-                    'user_id' => $user->id,
+                    'seller_id' => $user->id,
                     'amount' => $request->amount,
                     'bank_name' => $request->bank_name,
                     'account_number' => $request->account_number,
@@ -93,7 +95,7 @@ class EarningsController extends Controller
 
     public function showPayout(PayoutRequest $payoutRequest)
     {
-        if ($payoutRequest->user_id !== auth()->id()) {
+        if ($payoutRequest->seller_id !== auth()->id()) {
             abort(403);
         }
 

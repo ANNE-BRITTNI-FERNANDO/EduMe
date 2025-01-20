@@ -78,45 +78,46 @@ class PayoutService
                 'previous_status' => $previousStatus
             ]);
 
-            // Get all unique sellers from order items with their total amounts and delivery fees
-            $sellerAmounts = $order->items()
-                ->select(
-                    'seller_id',
-                    DB::raw('SUM(price * quantity) as total_amount'),
-                    DB::raw('SUM(COALESCE(delivery_fee_share, 0)) as total_delivery_fee')
-                )
-                ->groupBy('seller_id')
-                ->get();
+            // Only process if this is the first time the order is being marked as delivered_to_warehouse
+            if ($newStatus === 'delivered_to_warehouse' && $previousStatus !== 'delivered_to_warehouse') {
+                $sellerAmounts = $order->items()
+                    ->select(
+                        'seller_id',
+                        DB::raw('SUM(price * quantity) as total_amount'),
+                        DB::raw('SUM(COALESCE(delivery_fee_share, 0)) as total_delivery_fee')
+                    )
+                    ->groupBy('seller_id')
+                    ->get();
 
-            foreach ($sellerAmounts as $sellerAmount) {
-                $sellerBalance = SellerBalance::lockForUpdate()
-                    ->where('seller_id', $sellerAmount->seller_id)
-                    ->first();
-                
-                if (!$sellerBalance) {
-                    \Log::error("No seller balance found", [
+                foreach ($sellerAmounts as $sellerAmount) {
+                    $sellerBalance = SellerBalance::lockForUpdate()
+                        ->where('seller_id', $sellerAmount->seller_id)
+                        ->first();
+                    
+                    if (!$sellerBalance) {
+                        \Log::error("No seller balance found", [
+                            'seller_id' => $sellerAmount->seller_id,
+                            'order_id' => $order->id
+                        ]);
+                        continue;
+                    }
+
+                    $totalAmount = $sellerAmount->total_amount;
+
+                    \Log::info("Processing seller balance", [
                         'seller_id' => $sellerAmount->seller_id,
-                        'order_id' => $order->id
+                        'total_amount' => $totalAmount,
+                        'current_pending' => $sellerBalance->pending_balance,
+                        'current_available' => $sellerBalance->available_balance
                     ]);
-                    continue;
-                }
 
-                $totalAmount = $sellerAmount->total_amount;
-
-                \Log::info("Processing seller balance", [
-                    'seller_id' => $sellerAmount->seller_id,
-                    'total_amount' => $totalAmount,
-                    'current_pending' => $sellerBalance->pending_balance,
-                    'current_available' => $sellerBalance->available_balance
-                ]);
-
-                if ($newStatus === 'delivered_to_warehouse' && $previousStatus !== 'delivered_to_warehouse') {
-                    // Move amount from pending to available when delivered to warehouse
+                    // Add amount directly to available balance
                     DB::table('seller_balances')
                         ->where('seller_id', $sellerAmount->seller_id)
                         ->update([
-                            'pending_balance' => DB::raw("pending_balance - {$totalAmount}"),
                             'available_balance' => DB::raw("available_balance + {$totalAmount}"),
+                            'total_earned' => DB::raw("total_earned + {$totalAmount}"),
+                            'balance_to_be_paid' => DB::raw("balance_to_be_paid + {$totalAmount}"),
                             'updated_at' => now()
                         ]);
 
@@ -126,31 +127,24 @@ class PayoutService
                             ->increment('total_delivery_fees_earned', $sellerAmount->total_delivery_fee);
                     }
 
-                    \Log::info("Moved balance from pending to available", [
+                    \Log::info("Added amount to available balance", [
                         'seller_id' => $sellerAmount->seller_id,
                         'amount' => $totalAmount,
                         'delivery_fee' => $sellerAmount->total_delivery_fee
                     ]);
-                }
 
-                // Update balance to be paid
-                DB::table('seller_balances')
-                    ->where('seller_id', $sellerAmount->seller_id)
-                    ->update([
-                        'balance_to_be_paid' => DB::raw('pending_balance + available_balance'),
-                        'updated_at' => now()
+                    // Get final state for logging
+                    $finalBalance = SellerBalance::where('seller_id', $sellerAmount->seller_id)->first();
+                    \Log::info("Final balance state", [
+                        'seller_id' => $sellerAmount->seller_id,
+                        'pending_balance' => $finalBalance->pending_balance,
+                        'available_balance' => $finalBalance->available_balance,
+                        'total_earned' => $finalBalance->total_earned,
+                        'total_delivery_fees' => $finalBalance->total_delivery_fees_earned
                     ]);
-
-                // Get final state for logging
-                $finalBalance = SellerBalance::where('seller_id', $sellerAmount->seller_id)->first();
-                \Log::info("Final balance state", [
-                    'seller_id' => $sellerAmount->seller_id,
-                    'pending_balance' => $finalBalance->pending_balance,
-                    'available_balance' => $finalBalance->available_balance,
-                    'total_earned' => $finalBalance->total_earned,
-                    'total_delivery_fees' => $finalBalance->total_delivery_fees_earned
-                ]);
+                }
             }
+            // For all other status changes, do nothing with the balance
         });
     }
 
@@ -182,35 +176,47 @@ class PayoutService
     public function handlePayoutRequest(PayoutRequest $payoutRequest, string $status, ?string $rejectionReason = null)
     {
         DB::transaction(function () use ($payoutRequest, $status, $rejectionReason) {
-            $sellerBalance = SellerBalance::lockForUpdate()
-                ->where('seller_id', $payoutRequest->seller_id)
-                ->firstOrFail();
+            $sellerBalance = SellerBalance::where('seller_id', $payoutRequest->seller_id)
+                ->lockForUpdate()
+                ->first();
 
-            if ($status === 'approved') {
+            if (!$sellerBalance) {
+                throw new \Exception('Seller balance not found');
+            }
+
+            if ($status === 'completed') {
                 // Check if there's enough available balance
                 if ($sellerBalance->available_balance >= $payoutRequest->amount) {
-                    // Update seller balance
-                    $sellerBalance->decrement('available_balance', $payoutRequest->amount);
-                    $sellerBalance->decrement('balance_to_be_paid', $payoutRequest->amount);
+                    // Deduct from available balance and balance to be paid
+                    $sellerBalance->available_balance -= $payoutRequest->amount;
+                    $sellerBalance->balance_to_be_paid -= $payoutRequest->amount;
+                    $sellerBalance->pending_balance -= $payoutRequest->amount;
+                    $sellerBalance->save();
 
-                    // Update payout request status
+                    // Update payout request
                     $payoutRequest->update([
-                        'status' => 'approved',
+                        'status' => 'completed',
                         'processed_at' => now(),
-                        'processed_by' => auth()->id()
+                        'processed_by' => auth()->id(),
+                        'approved_at' => now()
                     ]);
 
-                    // Log the successful payout
-                    \Log::info('Payout request approved', [
+                    \Log::info('Payout request completed', [
                         'payout_request_id' => $payoutRequest->id,
                         'seller_id' => $payoutRequest->seller_id,
                         'amount' => $payoutRequest->amount,
-                        'new_available_balance' => $sellerBalance->fresh()->available_balance
+                        'new_available_balance' => $sellerBalance->available_balance,
+                        'new_pending_balance' => $sellerBalance->pending_balance
                     ]);
                 } else {
                     throw new \Exception('Insufficient available balance for payout');
                 }
             } elseif ($status === 'rejected') {
+                // Remove from pending balance only
+                $sellerBalance->pending_balance -= $payoutRequest->amount;
+                $sellerBalance->save();
+
+                // Update payout request
                 $payoutRequest->update([
                     'status' => 'rejected',
                     'rejection_reason' => $rejectionReason,
@@ -218,12 +224,12 @@ class PayoutService
                     'processed_by' => auth()->id()
                 ]);
 
-                // Log the rejection
                 \Log::info('Payout request rejected', [
                     'payout_request_id' => $payoutRequest->id,
                     'seller_id' => $payoutRequest->seller_id,
                     'amount' => $payoutRequest->amount,
-                    'reason' => $rejectionReason
+                    'reason' => $rejectionReason,
+                    'new_pending_balance' => $sellerBalance->pending_balance
                 ]);
             }
         });

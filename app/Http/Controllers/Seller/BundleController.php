@@ -42,6 +42,12 @@ class BundleController extends Controller
             $bundle->quantity = 1; // Default quantity
             $bundle->save();
 
+            // Notify admin about the new bundle submission
+            $admin = User::where('role', 'admin')->first();
+            if ($admin) {
+                $admin->notify(new \App\Notifications\BundleSubmittedForReview($bundle));
+            }
+
             // Handle Category Images
             foreach ($request->categories as $index => $categoryName) {
                 $categoryImagePath = $request->file('categoryImages')[$index]->store('categories', 'public');
@@ -52,16 +58,6 @@ class BundleController extends Controller
                     'category_image' => $categoryImagePath,
                     'status' => 'pending'
                 ]);
-            }
-
-            // Notify all admin users about the new bundle
-            $admins = User::where('role', 'admin')->get();
-            foreach ($admins as $admin) {
-                try {
-                    $admin->notify(new \App\Notifications\BundleSubmittedForReview($bundle));
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send bundle submission notification to admin: ' . $e->getMessage());
-                }
             }
 
             DB::commit();
@@ -268,6 +264,12 @@ class BundleController extends Controller
         $bundle->is_edited = true;
         $bundle->last_edited_at = now();
         $bundle->save();
+
+        // Notify admin about the new bundle submission
+        $admin = User::where('role', 'admin')->first();
+        if ($admin) {
+            $admin->notify(new \App\Notifications\BundleSubmittedForReview($bundle));
+        }
 
         // Update categories
         foreach ($request->categories as $categoryId => $categoryData) {

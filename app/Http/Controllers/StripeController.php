@@ -42,15 +42,42 @@ class StripeController extends Controller
             return redirect()->back()->with('error', 'Your cart is empty');
         }
 
-        // Use delivery fee from session if available (updated address case)
-        // otherwise calculate it fresh
+        // Get delivery details from session
         $deliveryFee = session('delivery_fee');
-        if ($deliveryFee === null) {
+        $deliveryLocation = session('delivery_location');
+        $deliveryProvince = session('delivery_province');
+
+        // Verify delivery details match
+        if ($request->location !== $deliveryLocation || $request->province !== $deliveryProvince) {
+            // Recalculate if details don't match
             $deliveryFee = $this->deliveryService->calculateDeliveryFee(
                 $items,
-                $request->location ?? 'default',
-                $request->province ?? null
+                $request->location,
+                $request->province
             );
+            
+            // Update session with new details
+            session([
+                'delivery_fee' => $deliveryFee,
+                'delivery_location' => $request->location,
+                'delivery_province' => $request->province
+            ]);
+        }
+
+        if ($deliveryFee === null) {
+            // Calculate if not in session
+            $deliveryFee = $this->deliveryService->calculateDeliveryFee(
+                $items,
+                $request->location,
+                $request->province
+            );
+            
+            // Store in session
+            session([
+                'delivery_fee' => $deliveryFee,
+                'delivery_location' => $request->location,
+                'delivery_province' => $request->province
+            ]);
         }
 
         $lineItems = [];

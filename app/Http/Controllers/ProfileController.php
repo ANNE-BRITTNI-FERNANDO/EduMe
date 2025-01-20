@@ -26,18 +26,14 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        // Remove email from the fillable data to prevent changes
         $request->user()->fill([
             'name' => $request->name,
-            'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
             'province' => $request->province,
             'location' => $request->location,
         ]);
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
 
         $request->user()->save();
 
@@ -53,16 +49,23 @@ class ProfileController extends Controller
             'password' => ['required', 'current_password'],
         ]);
 
-        $user = $request->user();
+        try {
+            $user = $request->user();
+            
+            // Logout the user first
+            Auth::logout();
+            
+            // Handle account deletion with our custom logic
+            $user->deleteAccount();
 
-        Auth::logout();
+            // Clean up the session
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-        $user->delete();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return Redirect::to('/');
+            return Redirect::to('/')->with('status', 'account-deleted');
+        } catch (\Exception $e) {
+            return back()->withErrors(['deletion_error' => 'There was an error deleting your account. Please try again.'])->withInput();
+        }
     }
 
     /**

@@ -53,6 +53,12 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    // Alias for user() to maintain semantic clarity
+    public function buyer(): BelongsTo
+    {
+        return $this->user();
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);

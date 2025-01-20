@@ -5,82 +5,91 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
+use App\Models\ProductImage;
+use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use App\Notifications\ProductSubmittedForReview;
 
 class ProductController extends Controller
 {
     // Method to display all products for admin or seller
     public function index()
     {
-        $user = auth()->user();
+        $query = Product::query()->where('user_id', auth()->id());
 
-        // Get products based on user role
-        $products = Product::query();
-        
-        if ($user->role === 'seller') {
-            $products->where('user_id', $user->id);
-            $view = 'seller.products.index';
-        } else {
-            $products->where('is_approved', false)
-                    ->where('is_rejected', false);
-            $view = 'admin.dashboard';
+        // Apply status filter
+        if (request('status')) {
+            switch (request('status')) {
+                case 'pending':
+                    $query->where('is_approved', false)
+                          ->where('is_rejected', false)
+                          ->where('status', 'pending');
+                    break;
+                case 'approved':
+                    $query->where('is_approved', true)
+                          ->where('is_rejected', false);
+                    break;
+                case 'rejected':
+                    $query->where('is_rejected', true);
+                    break;
+                case 'resubmitted':
+                    $query->where('status', 'resubmitted')
+                          ->where('is_approved', false)
+                          ->where('is_rejected', false);
+                    break;
+            }
         }
-        
-        $products = $products->orderBy('created_at', 'desc')->get();
 
-        // Get order statistics
-        $totalOrders = Order::when($user->role === 'seller', function($query) use ($user) {
-            $query->whereHas('items', function($q) use ($user) {
-                $q->where('seller_id', $user->id);
-            });
-        })->count();
+        // Apply date filters
+        if (request('date_from')) {
+            $query->whereDate('created_at', '>=', request('date_from'));
+        }
+        if (request('date_to')) {
+            $query->whereDate('created_at', '<=', request('date_to'));
+        }
 
-        $pendingOrders = Order::when($user->role === 'seller', function($query) use ($user) {
-            $query->whereHas('items', function($q) use ($user) {
-                $q->where('seller_id', $user->id);
-            });
-        })->where('delivery_status', 'pending')->count();
+        // Get products with sorting
+        $products = $query->latest()->get();
 
-        $completedOrders = Order::when($user->role === 'seller', function($query) use ($user) {
-            $query->whereHas('items', function($q) use ($user) {
-                $q->where('seller_id', $user->id);
-            });
-        })->where('delivery_status', 'delivered')->count();
+        // Get statistics
+        $stats = [
+            'total' => Product::where('user_id', auth()->id())->count(),
+            'pending' => Product::where('user_id', auth()->id())
+                ->where('is_approved', false)
+                ->where('is_rejected', false)
+                ->where('status', 'pending')
+                ->count(),
+            'approved' => Product::where('user_id', auth()->id())
+                ->where('is_approved', true)
+                ->where('is_rejected', false)
+                ->count(),
+            'rejected' => Product::where('user_id', auth()->id())
+                ->where('is_rejected', true)
+                ->count()
+        ];
 
-        $totalRevenue = Order::when($user->role === 'seller', function($query) use ($user) {
-            $query->whereHas('items', function($q) use ($user) {
-                $q->where('seller_id', $user->id);
-            });
-        })->where('delivery_status', 'delivered')
-          ->where('payment_status', 'paid')
-          ->sum('total_amount');
-
-        // Get recent orders for admin dashboard
-        $recentOrders = Order::when($user->role === 'seller', function($query) use ($user) {
-            $query->whereHas('items', function($q) use ($user) {
-                $q->where('seller_id', $user->id);
-            });
-        })->with(['items.item', 'user'])
-          ->latest()
-          ->take(5)
-          ->get();
-
-        return view($view, compact('products', 'totalOrders', 'pendingOrders', 'completedOrders', 'totalRevenue', 'recentOrders'));
+        return view('seller.products.index', compact('products', 'stats'));
     }
 
     // Method to display the product creation form
     public function create()
     {
         // Define categories for the dropdown
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
         
-        // Get approved products for the current seller
-        $approvedProducts = Product::where('user_id', auth()->id())
-            ->where('is_approved', true)
-            ->where('is_rejected', false)
-            ->orderBy('created_at', 'desc')
+        // Get recent products for the current seller
+        $products = Product::where('user_id', auth()->id())
+            ->latest()
+            ->take(5)
             ->get();
 
-        return view('seller.products.create', compact('categories', 'approvedProducts'));
+        return view('seller.products.create', compact('categories', 'products'));
     }
 
     // Store the new product
@@ -90,34 +99,58 @@ class ProductController extends Controller
             'product_name' => 'required|string|max:255',
             'description' => 'required|string',
             'price' => 'required|numeric|min:0',
-            'category' => 'required|string|in:Electronics,Books,Clothing,Furniture,Toys',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+            'category' => 'required|string|in:Textbooks & Reference Books,Literature & Story Books,Study Materials & Notes,School Bags & Supplies,Educational Technology',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'additional_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         try {
-            // Handle image upload
+            // Handle main image upload
             $imagePath = $request->file('image')->store('products', 'public');
 
-            // Create product
+            // Create the product
             $product = Product::create([
                 'product_name' => $request->product_name,
                 'description' => $request->description,
                 'price' => $request->price,
-                'image_path' => $imagePath,
-                'user_id' => auth()->id(),
                 'category' => $request->category,
-                'is_approved' => false,
-                'is_rejected' => false
+                'image_path' => $imagePath,
+                'user_id' => auth()->id()
             ]);
 
-            // Redirect back to create page with success message
-            return redirect()->route('seller.products.create')
-                           ->with('success', 'Product has been submitted for approval. You will be notified once it is reviewed.');
+            // Handle additional images
+            if ($request->hasFile('additional_images')) {
+                $sortOrder = 1;
+                foreach ($request->file('additional_images') as $image) {
+                    $additionalImagePath = $image->store('products', 'public');
+                    
+                    $product->images()->create([
+                        'image_path' => $additionalImagePath,
+                        'is_primary' => false,
+                        'sort_order' => $sortOrder++
+                    ]);
+                }
+            }
+
+            // Create a primary image record
+            $product->images()->create([
+                'image_path' => $imagePath,
+                'is_primary' => true,
+                'sort_order' => 0
+            ]);
+
+            // Notify admin about the new product submission
+            $admin = User::where('role', 'admin')->first();
+            if ($admin) {
+                $admin->notify(new ProductSubmittedForReview($product));
+            }
+
+            return redirect()->route('seller.products.index')
+                ->with('success', 'Product created successfully!');
+
         } catch (\Exception $e) {
-            \Log::error('Product creation failed: ' . $e->getMessage());
-            return redirect()->back()
-                           ->withInput()
-                           ->with('error', 'Failed to create product. Please try again.');
+            \Log::error('Failed to create product: ' . $e->getMessage());
+            return back()->with('error', 'Failed to create product. Please try again.');
         }
     }
 
@@ -194,49 +227,125 @@ class ProductController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
         return view('seller.products.edit', compact('product', 'categories'));
     }
 
     // Update product
-    public function update(Request $request, $id)
+    public function update(Request $request, Product $product)
     {
-        $product = Product::findOrFail($id);
-        
-        // Check if the user is the owner of the product
-        if (auth()->id() !== $product->user_id) {
-            abort(403, 'Unauthorized action.');
-        }
-
         $request->validate([
             'product_name' => 'required|string|max:255',
             'description' => 'required|string',
-            'price' => 'required|numeric',
-            'category' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'category' => 'required|string|in:Textbooks & Reference Books,Literature & Story Books,Study Materials & Notes,School Bags & Supplies,Educational Technology',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'additional_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
-        $product->product_name = $request->input('product_name');
-        $product->description = $request->input('description');
-        $product->price = $request->input('price');
-        $product->category = $request->input('category');
+        try {
+            // Update basic product information
+            $product->update([
+                'product_name' => $request->product_name,
+                'description' => $request->description,
+                'price' => $request->price,
+                'category' => $request->category,
+            ]);
 
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('product_images', 'public');
-            $product->image_path = $imagePath;
+            // Handle main image update if provided
+            if ($request->hasFile('image')) {
+                // Delete old image
+                if ($product->image_path) {
+                    Storage::disk('public')->delete($product->image_path);
+                }
+                
+                // Store new image
+                $imagePath = $request->file('image')->store('products', 'public');
+                $product->update(['image_path' => $imagePath]);
+
+                // Update or create primary image record
+                $product->images()->updateOrCreate(
+                    ['is_primary' => true],
+                    ['image_path' => $imagePath, 'sort_order' => 0]
+                );
+            }
+
+            // Handle additional images if provided
+            if ($request->hasFile('additional_images')) {
+                $sortOrder = $product->images->where('is_primary', false)->max('sort_order') ?? 0;
+                
+                foreach ($request->file('additional_images') as $image) {
+                    $imagePath = $image->store('products', 'public');
+                    $sortOrder++;
+                    
+                    $product->images()->create([
+                        'image_path' => $imagePath,
+                        'is_primary' => false,
+                        'sort_order' => $sortOrder
+                    ]);
+                }
+            }
+
+            return redirect()->route('seller.products.index')
+                ->with('success', 'Product updated successfully!');
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to update product: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update product. Please try again.');
         }
+    }
 
-        $product->save();
+    // Add a new method to handle image deletion
+    public function deleteImage($imageId)
+    {
+        try {
+            $image = ProductImage::findOrFail($imageId);
+            
+            // Don't allow deletion of primary images
+            if ($image->is_primary) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete primary image'
+                ], 400);
+            }
 
-        return redirect()->route('seller.products.index')
-                        ->with('success', 'Product updated successfully');
+            // Delete the file from storage
+            Storage::disk('public')->delete($image->image_path);
+            
+            // Delete the database record
+            $image->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete image: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete image'
+            ], 500);
+        }
     }
 
     // List approved products with advanced filtering
     public function listApprovedProducts(Request $request)
     {
         // Define categories for the dropdown
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
         
         // Start with base query for available products only
         $query = Product::where('is_approved', true)
@@ -348,7 +457,13 @@ class ProductController extends Controller
     public function filterApprovedProducts(Request $request)
     {
         // Define categories for the dropdown
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
         
         // Get the selected category from the request
         $selectedCategory = $request->input('category');
@@ -365,27 +480,46 @@ class ProductController extends Controller
     }
 
 
-    public function destroy($id)
+    public function destroy(Product $product)
     {
-        // Find the product by its ID
-        $product = Product::findOrFail($id);
+        try {
+            // Check if the product belongs to the current user
+            if ($product->user_id !== auth()->id()) {
+                return redirect()->back()->with('error', 'Unauthorized action.');
+            }
 
-        // Delete the product
-        $product->delete();
+            // Delete product images from storage
+            if ($product->image_path) {
+                Storage::disk('public')->delete($product->image_path);
+            }
 
-        // Redirect to the seller products index page
-        return redirect()->route('seller.products.index')->with('success', 'Product deleted successfully');
+            // Delete additional images
+            foreach ($product->images as $image) {
+                Storage::disk('public')->delete($image->image_path);
+            }
+
+            // Delete the product
+            $product->delete();
+
+            return redirect()->route('seller.products.index')
+                ->with('success', 'Product deleted successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error('Error deleting product: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Failed to delete product. Please try again.');
+        }
     }
 
-// In ProductController.php
-public function show($id)
-{
-    // Find the product by its ID
-    $product = Product::findOrFail($id);
+    public function show(Product $product)
+    {
+        // For public view, only show approved products
+        if ($product->status !== 'approved') {
+            abort(404);
+        }
 
-    // Return the 'product.show' view with the product data
-    return view('product.show', compact('product'));
-}
+        return view('products.show', compact('product'));
+    }
 
     // Advanced product filtering method
     public function advancedFilter(Request $request)
@@ -428,7 +562,13 @@ public function show($id)
             });
         }
 
-        $categories = ['Electronics', 'Books', 'Clothing', 'Furniture', 'Toys'];
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
         return view('productlisting', [
             'approvedProducts' => $products,
             'categories' => $categories,
@@ -468,8 +608,60 @@ public function show($id)
 
     public function sellerProducts()
     {
-        $products = Product::where('user_id', auth()->id())->paginate(12);
-        return view('seller.products.index', compact('products'));
+        $query = Product::query()->where('user_id', auth()->id());
+
+        // Apply status filter
+        if (request('status')) {
+            switch (request('status')) {
+                case 'pending':
+                    $query->where('is_approved', false)
+                          ->where('is_rejected', false)
+                          ->where('status', 'pending');
+                    break;
+                case 'approved':
+                    $query->where('is_approved', true)
+                          ->where('is_rejected', false);
+                    break;
+                case 'rejected':
+                    $query->where('is_rejected', true);
+                    break;
+                case 'resubmitted':
+                    $query->where('status', 'resubmitted')
+                          ->where('is_approved', false)
+                          ->where('is_rejected', false);
+                    break;
+            }
+        }
+
+        // Apply date filters
+        if (request('date_from')) {
+            $query->whereDate('created_at', '>=', request('date_from'));
+        }
+        if (request('date_to')) {
+            $query->whereDate('created_at', '<=', request('date_to'));
+        }
+
+        // Get products with sorting and pagination
+        $products = $query->latest()->paginate(12);
+
+        // Get statistics
+        $stats = [
+            'total' => Product::where('user_id', auth()->id())->count(),
+            'pending' => Product::where('user_id', auth()->id())
+                ->where('is_approved', false)
+                ->where('is_rejected', false)
+                ->where('status', 'pending')
+                ->count(),
+            'approved' => Product::where('user_id', auth()->id())
+                ->where('is_approved', true)
+                ->where('is_rejected', false)
+                ->count(),
+            'rejected' => Product::where('user_id', auth()->id())
+                ->where('is_rejected', true)
+                ->count()
+        ];
+
+        return view('seller.products.index', compact('products', 'stats'));
     }
 
     // Show approved products for admin
@@ -485,5 +677,113 @@ public function show($id)
                           ->get();
 
         return view('admin.products.approved', compact('products'));
+    }
+
+    public function adminShow(Product $product)
+    {
+        // Only admin can access this
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        return view('admin.products.show', compact('product'));
+    }
+
+    public function resubmitForm(Product $product)
+    {
+        // Check if the product belongs to the current user
+        if ($product->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Define categories for the dropdown
+        $categories = [
+            'Textbooks & Reference Books',
+            'Literature & Story Books',
+            'Study Materials & Notes',
+            'School Bags & Supplies',
+            'Educational Technology'
+        ];
+
+        return view('seller.products.resubmit', compact('product', 'categories'));
+    }
+
+    public function resubmit(Request $request, Product $product)
+    {
+        try {
+            $request->validate([
+                'product_name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'category' => 'required|string',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'additional_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
+
+            // Update product details
+            $product->product_name = $request->product_name;
+            $product->description = $request->description;
+            $product->price = $request->price;
+            $product->category = $request->category;
+            $product->status = 'resubmitted'; // Set status to resubmitted
+            $product->is_approved = false;
+            $product->is_rejected = false;
+            $product->rejection_reason = null; // Clear previous rejection reason
+            $product->rejection_note = null;   // Clear previous rejection note
+
+            // Handle main image if provided
+            if ($request->hasFile('image')) {
+                // Delete old main image
+                if ($product->image_path) {
+                    Storage::disk('public')->delete($product->image_path);
+                }
+                $product->image_path = $request->file('image')->store('products', 'public');
+            }
+
+            $product->save();
+
+            // Handle additional images if provided
+            if ($request->hasFile('additional_images')) {
+                // Delete old additional images
+                foreach ($product->images as $image) {
+                    Storage::disk('public')->delete($image->image_path);
+                }
+                $product->images()->delete();
+
+                // Add new additional images
+                $sortOrder = 1;
+                foreach ($request->file('additional_images') as $image) {
+                    $imagePath = $image->store('products', 'public');
+                    $sortOrder++;
+                    
+                    $product->images()->create([
+                        'image_path' => $imagePath,
+                        'is_primary' => false,
+                        'sort_order' => $sortOrder
+                    ]);
+                }
+            }
+
+            // Add debug logging
+            \Log::info('Product resubmitted:', [
+                'product_id' => $product->id,
+                'new_status' => $product->status,
+                'is_approved' => $product->is_approved,
+                'is_rejected' => $product->is_rejected
+            ]);
+
+            // Notify admin about the resubmitted product
+            $admin = User::where('role', 'admin')->first();
+            if ($admin) {
+                $admin->notify(new ProductSubmittedForReview($product));
+            }
+
+            return redirect()->route('seller.products.index')
+                ->with('success', 'Product has been resubmitted for review.');
+
+        } catch (\Exception $e) {
+            \Log::error('Error resubmitting product: ' . $e->getMessage());
+            return back()->with('error', 'Failed to resubmit product. Please try again.');
+        }
     }
 }

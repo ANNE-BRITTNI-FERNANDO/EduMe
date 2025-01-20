@@ -5,8 +5,19 @@
         </h2>
 
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.') }}
+            {{ __('Before deleting your account, please note:') }}
         </p>
+        <ul class="mt-2 list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+            <li>{{ __('All your active products will be marked as unavailable') }}</li>
+            <li>{{ __('Your bundles will no longer be available for purchase') }}</li>
+            <li>{{ __('You cannot delete your account if you have:') }}
+                <ul class="ml-6 list-disc list-inside">
+                    <li>{{ __('Active orders (pending or processing)') }}</li>
+                    <li>{{ __('Available balance in your seller account') }}</li>
+                </ul>
+            </li>
+            <li>{{ __('Order history will be preserved for record-keeping') }}</li>
+        </ul>
     </header>
 
     <x-danger-button
@@ -24,8 +35,14 @@
             </h2>
 
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.') }}
+                {{ __('This action cannot be undone. All your products will be made unavailable and your account will be permanently deleted.') }}
             </p>
+
+            @error('deletion_error')
+                <div class="mt-4 p-4 bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg">
+                    {{ $message }}
+                </div>
+            @enderror
 
             <div class="mt-6">
                 <x-input-label for="password" value="{{ __('Password') }}" class="sr-only" />

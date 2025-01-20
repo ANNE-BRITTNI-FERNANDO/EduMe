@@ -402,6 +402,20 @@ class OrderController extends Controller
                     'order_number' => 'ORD-' . time() . '-' . $sellerId // Add unique order number
                 ]);
 
+                // Notify admin about the new order
+                $admin = User::where('role', 'admin')->first();
+                if ($admin) {
+                    $admin->notify(new NewOrderNotification($order));
+                }
+
+                // Notify seller about the new order
+                foreach ($sellerItems as $sellerId => $items) {
+                    $seller = User::find($sellerId);
+                    if ($seller) {
+                        $seller->notify(new NewOrderNotification($order));
+                    }
+                }
+
                 // Create order items
                 foreach ($items as $cartItem) {
                     $order->items()->create([

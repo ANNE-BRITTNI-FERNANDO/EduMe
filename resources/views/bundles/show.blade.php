@@ -42,7 +42,7 @@
                             @endif
                         </div>
                         <span class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white text-2xl font-bold rounded-full shadow-lg">
-                            ${{ number_format($bundle->price, 2) }}
+                            LKR {{ number_format($bundle->price, 2) }}
                         </span>
                     </div>
 
@@ -69,27 +69,41 @@
                         <div class="mt-8 flex space-x-4">
                             @auth
                                 @if(auth()->id() !== $bundle->user_id)
-                                    <a href="{{ route('cart.add.bundle', ['id' => $bundle->id]) }}" 
-                                       class="w-full bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center justify-center">
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                        </svg>
-                                        Add to Cart
-                                    </a>
-                                    <a href="{{ route('chat.start.bundle', ['bundle' => $bundle->id]) }}" 
-                                       class="w-full bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors duration-200 flex items-center justify-center">
+                                    <form action="{{ route('cart.add.bundle', $bundle) }}" method="POST" class="w-full">
+                                        @csrf
+                                        <button type="submit" 
+                                                class="w-full bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center justify-center">
+                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                            Add to Cart
+                                        </button>
+                                    </form>
+                                    <a href="{{ route('chat.start.bundle', $bundle) }}" 
+                                       class="flex-shrink-0 bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors duration-200 flex items-center">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                         </svg>
                                         Chat with Seller
                                     </a>
+                                @else
+                                    <a href="{{ route('seller.bundles.edit', $bundle->id) }}" 
+                                       class="w-full bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors duration-200 flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Edit Bundle
+                                    </a>
                                 @endif
-                            @endauth
-                            @guest
-                                <a href="{{ route('login') }}" class="w-full px-6 py-3 bg-gray-800 text-white text-center font-medium rounded-lg">
+                            @else
+                                <a href="{{ route('login') }}" 
+                                   class="w-full bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors duration-200 flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                    </svg>
                                     Login to Purchase
                                 </a>
-                            @endguest
+                            @endauth
                         </div>
                     </div>
                 </div>

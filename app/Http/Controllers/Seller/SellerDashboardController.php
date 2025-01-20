@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\SellerBalance;
+use App\Models\PayoutRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -21,17 +22,20 @@ class SellerDashboardController extends Controller
             return redirect()->route('home')->with('error', 'You need to be a seller to access this page.');
         }
 
-        // Get seller's balance from SellerBalance model
+        // Get or create seller balance
         $sellerBalance = SellerBalance::firstOrCreate(
             ['seller_id' => $user->id],
             [
-                'available_balance' => 0,
-                'pending_balance' => 0,
                 'total_earned' => 0,
                 'balance_to_be_paid' => 0,
-                'total_delivery_fees_earned' => 0
+                'available_balance' => 0,
+                'pending_balance' => 0
             ]
         );
+
+        // Recalculate balance to ensure it's up to date
+        $sellerBalance->recalculateBalance();
+        $sellerBalance->refresh();
 
         // Get recent orders
         $recentOrders = OrderItem::with(['order', 'item'])
