@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('donation_item_id')->nullable()->constrained('donation_items')->onDelete('cascade');
-            $table->foreignId('monetary_donation_id')->nullable()->constrained('monetary_donations')->onDelete('cascade');
             $table->integer('quantity');
             $table->enum('purpose', ['personal', 'educational', 'community', 'other']);
             $table->text('purpose_details');
