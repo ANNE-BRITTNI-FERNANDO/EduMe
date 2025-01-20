@@ -1,10 +1,12 @@
 <?php
+
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
-use App\Http\Controllers\AdminBundleController;
+use App\Http\Controllers\Admin\AdminBundleController;
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Seller\BundleController;
 use App\Http\Controllers\Seller\SellerDashboardController;
 use App\Http\Controllers\Seller\SellerOrderController;
@@ -13,17 +15,21 @@ use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\DeliveryTrackingController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Seller\SellerRatingController;
 use App\Models\Product;
 use App\Models\Order;
-use App\Http\Controllers\Admin\ReportsController;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\BudgetManagementController;
+use App\Http\Controllers\BuyerDashboardController;
+use App\Http\Controllers\Admin\AdminDonationController;
+use App\Http\Controllers\DonorController;
 
 Route::get('/', function () {
     return view('home');
@@ -119,6 +125,7 @@ Route::middleware(['auth'])->group(function () {
         
         // Bundles
         Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
+        Route::get('/bundles/{bundle}', [AdminBundleController::class, 'show'])->name('bundles.show');
         Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
         Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
         
@@ -150,6 +157,24 @@ Route::middleware(['auth'])->group(function () {
             $sellerBalance->recalculateBalance();
             return back()->with('success', 'Balance recalculated successfully');
         })->name('admin.sellers.recalculate-balance');
+
+        // Donations management
+        Route::prefix('donations')->name('donations.')->group(function () {
+            Route::get('/', [AdminDonationController::class, 'index'])->name('index');
+            Route::get('/requests', [AdminDonationController::class, 'requests'])->name('requests');
+            Route::post('/{donation}/approve', [AdminDonationController::class, 'approveDonation'])->name('approve');
+            Route::post('/{donation}/reject', [AdminDonationController::class, 'rejectDonation'])->name('reject');
+            Route::post('/requests/{donationRequest}/approve', [AdminDonationController::class, 'approveRequest'])->name('requests.approve');
+            Route::post('/requests/{donationRequest}/reject', [AdminDonationController::class, 'rejectRequest'])->name('requests.reject');
+            Route::delete('/{donation}', [AdminDonationController::class, 'deleteDonation'])->name('delete');
+            Route::post('/{donation}/remove', [AdminDonationController::class, 'removeDonation'])->name('remove');
+        });
+
+        // Ratings management
+        Route::prefix('ratings')->name('ratings.')->group(function () {
+            Route::get('/', [SellerRatingController::class, 'adminIndex'])->name('index');
+            Route::delete('/{id}', [SellerRatingController::class, 'delete'])->name('delete');
+        });
     });
 
     // Cart routes
@@ -161,6 +186,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/cart/get-districts/{province}', [CartController::class, 'getDistricts'])->name('cart.districts');
         Route::post('/cart/update-delivery', [CartController::class, 'updateDeliveryFee'])->name('cart.update.delivery');
         Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    });
+
+    // Seller rating routes
+    Route::middleware(['auth', 'web'])->group(function () {
+        Route::post('/seller/ratings/{order}', [SellerRatingController::class, 'store'])->name('seller.ratings.store');
     });
 
     // Stripe payment routes
@@ -267,6 +297,7 @@ Route::middleware(['auth'])->group(function () {
 // Admin Bundle routes
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/bundles', [AdminBundleController::class, 'index'])->name('bundles.index');
+    Route::get('/bundles/{bundle}', [AdminBundleController::class, 'show'])->name('bundles.show');
     Route::get('/bundles/approved', [AdminBundleController::class, 'approvedBundles'])->name('bundles.approved');
     Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
 });
@@ -397,9 +428,15 @@ Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function (
 });
 
 // Buyer routes
-Route::middleware(['auth', 'checkmode'])->prefix('buyer')->name('buyer.')->group(function () {
+Route::middleware(['auth'])->prefix('buyer')->name('buyer.')->group(function () {
     Route::get('/dashboard', [BuyerDashboardController::class, 'index'])->name('dashboard');
-    // ... other buyer routes ...
+    
+    // Budget management routes
+    Route::prefix('budget')->name('budget.')->group(function () {
+        Route::get('/', [BudgetManagementController::class, 'index'])->name('index');
+        Route::post('/set', [BudgetManagementController::class, 'setBudget'])->name('set');
+        Route::post('/update', [BudgetManagementController::class, 'update'])->name('update');
+    });
 });
 
 // Warehouse Routes
@@ -561,6 +598,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     })->name('approved');
 });
 
+// Seller Rating Routes
+Route::post('/seller/ratings/{order}', [SellerRatingController::class, 'store'])->name('seller.ratings.store');
+Route::get('/seller/ratings', [SellerRatingController::class, 'showSellerRatings'])->name('seller.ratings.index');
+Route::get('/admin/ratings', [SellerRatingController::class, 'showAdminRatings'])->name('admin.ratings.index');
+
 // routes/web.php
 
 Route::get('/seller/orders/{order}', function($orderId) {
@@ -591,3 +633,132 @@ Route::post('/webhook/stripe', [StripeController::class, 'handleWebhook'])->name
 // Delivery Tracking
 Route::get('/delivery/tracking/{order}', [DeliveryTrackingController::class, 'show'])->name('delivery.tracking.show');
 Route::post('/delivery/tracking/{order}/update', [DeliveryTrackingController::class, 'update'])->name('delivery.tracking.update');
+
+// Donor routes
+Route::middleware(['auth'])->prefix('donor')->name('donor.')->group(function () {
+    Route::get('/', function() {
+        return view('donor.index');
+    })->name('index');
+    Route::get('/donations', [DonorDonationController::class, 'index'])->name('donations.index');
+    Route::get('/donations/create', [DonorDonationController::class, 'create'])->name('donations.create');
+    Route::post('/donations', [DonorDonationController::class, 'store'])->name('donations.store');
+    Route::get('/donations/{donation}', [DonorDonationController::class, 'show'])->name('donations.show');
+    Route::get('/donations/{donation}/edit', [DonorDonationController::class, 'edit'])->name('donations.edit');
+    Route::put('/donations/{donation}', [DonorDonationController::class, 'update'])->name('donations.update');
+    Route::delete('/donations/{donation}', [DonorDonationController::class, 'destroy'])->name('donations.destroy');
+});
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+
+// routes/web.php
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+
+// Donation routes
+Route::prefix('donations')->name('donations.')->group(function () {
+    Route::get('/', [DonorController::class, 'index'])->name('index');
+    Route::get('/create', [DonorController::class, 'create'])->name('create');
+    Route::post('/', [DonorController::class, 'store'])->name('store');
+    Route::get('/available', [DonorController::class, 'available'])->name('available');
+    Route::get('/chat/{request}', [DonorController::class, 'showChat'])->name('donation.chat.show');
+    Route::get('/history', [DonorController::class, 'history'])->name('history');
+    Route::delete('/{donation}', [DonorController::class, 'destroy'])->name('destroy');
+    Route::get('/{donation}/request', [DonorController::class, 'requestForm'])->name('request.form');
+    Route::post('/{donation}/request', [DonorController::class, 'storeRequest'])->name('request.store');
+});
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+Route::post('/donation/chat/{donationRequestId}/send', [DonorController::class, 'sendMessage'])->name('donation.chat.send');
+Route::get('/donation/chat/{donationRequestId}/new/{lastMessageId}', [DonorController::class, 'getNewMessages'])->name('donation.chat.new');
+
+// routes/web.php
+
+Route::get('/seller/orders/{order}', function($orderId) {
+    $order = \App\Models\Order::with([
+        'items' => function($query) {
+            $query->with('item');
+        }, 
+        'user', 
+        'items.seller'
+    ])->findOrFail($orderId);
+    
+    return view('seller.orders.show', compact('order'));
+})->name('seller.orders.show');
+
+Route::middleware(['auth'])->prefix('seller')->name('seller.')->group(function () {
+    // Add any additional seller routes here
+});
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    // admin routes here
+});
+
+// Payment webhook
+Route::post('/stripe/webhook', [PaymentController::class, 'handleStripeWebhook'])->name('stripe.webhook');
+
+Route::post('/webhook/stripe', [StripeController::class, 'handleWebhook'])->name('stripe.webhook');
+
+// Delivery Tracking
+Route::get('/delivery/tracking/{order}', [DeliveryTrackingController::class, 'show'])->name('delivery.tracking.show');
+Route::post('/delivery/tracking/{order}/update', [DeliveryTrackingController::class, 'update'])->name('delivery.tracking.update');
+
+// Donor routes
+Route::middleware(['auth'])->prefix('donor')->name('donor.')->group(function () {
+    Route::get('/', function() {
+        return view('donor.index');
+    })->name('index');
+    Route::get('/donations', [DonorDonationController::class, 'index'])->name('donations.index');
+    Route::get('/donations/create', [DonorDonationController::class, 'create'])->name('donations.create');
+    Route::post('/donations', [DonorDonationController::class, 'store'])->name('donations.store');
+    Route::get('/donations/{donation}', [DonorDonationController::class, 'show'])->name('donations.show');
+    Route::get('/donations/{donation}/edit', [DonorDonationController::class, 'edit'])->name('donations.edit');
+    Route::put('/donations/{donation}', [DonorDonationController::class, 'update'])->name('donations.update');
+    Route::delete('/donations/{donation}', [DonorDonationController::class, 'destroy'])->name('donations.destroy');
+});
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+
+// routes/web.php
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+
+// Donation routes
+Route::prefix('donations')->name('donations.')->group(function () {
+    Route::get('/', [DonorController::class, 'index'])->name('index');
+    Route::get('/create', [DonorController::class, 'create'])->name('create');
+    Route::post('/', [DonorController::class, 'store'])->name('store');
+    Route::get('/available', [DonorController::class, 'available'])->name('available');
+    Route::get('/chat/{request}', [DonorController::class, 'showChat'])->name('donation.chat.show');
+    Route::get('/history', [DonorController::class, 'history'])->name('history');
+});
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+Route::post('/donation/chat/{donationRequestId}/send', [DonorController::class, 'sendMessage'])->name('donation.chat.send');
+Route::get('/donation/chat/{donationRequestId}/new/{lastMessageId}', [DonorController::class, 'getNewMessages'])->name('donation.chat.new');
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+Route::post('/donation/chat/{donationRequestId}/send', [DonorController::class, 'sendMessage'])->name('donation.chat.send');
+Route::get('/donation/chat/{donationRequestId}/new/{lastMessageId}', [DonorController::class, 'getNewMessages'])->name('donation.chat.new');
+
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donations/history', [DonorController::class, 'history'])->name('donations.history');
+Route::post('/donation/chat/{donationRequestId}/send', [DonorController::class, 'sendMessage'])->name('donation.chat.send');
+Route::get('/donation/chat/{donationRequestId}/new/{lastMessageId}', [DonorController::class, 'getNewMessages'])->name('donation.chat.new');
+
+Route::prefix('donations')->name('donations.')->group(function () {
+    Route::get('/', [DonorController::class, 'index'])->name('index');
+    Route::get('/create', [DonorController::class, 'create'])->name('create');
+    Route::post('/', [DonorController::class, 'store'])->name('store');
+    Route::get('/available', [DonorController::class, 'available'])->name('available');
+    Route::get('/chat/{request}', [DonorController::class, 'showChat'])->name('donation.chat.show');
+    Route::get('/history', [DonorController::class, 'history'])->name('history');
+});
+Route::get('/donor', [DonorController::class, 'index'])->name('donor.index');
+Route::get('/donation/chat/{request}', [DonorController::class, 'showChat'])->name('donation.chat.show');
