@@ -17,7 +17,7 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 bg-white border-b border-gray-200">
                         <h3 class="text-lg font-medium text-gray-900 mb-4">Add New Product</h3>
-                        <form action="{{ route('seller.products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                        <form action="{{ route('seller.products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" data-test="product-form">
                             @csrf
 
                             <!-- Product Name -->

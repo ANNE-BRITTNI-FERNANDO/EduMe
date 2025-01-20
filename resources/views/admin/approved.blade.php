@@ -36,42 +36,40 @@
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @foreach($products as $product)
-                                        @if($product->is_approved && !$product->is_rejected && $product->status === 'approved')
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="flex-shrink-0 h-20 w-20">
-                                                        <img class="h-20 w-20 object-cover rounded-lg" 
-                                                             src="{{ asset('storage/' . $product->image_path) }}" 
-                                                             alt="{{ $product->product_name }}">
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4">
-                                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {{ $product->product_name }}
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4">
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ Str::limit($product->description, 100) }}
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-900 dark:text-white">
-                                                        LKR {{ number_format($product->price, 2) }}
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ $product->category }}
-                                                    </div>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ $product->user->name }}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endif
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex-shrink-0 h-20 w-20">
+                                                    <img class="h-20 w-20 object-cover rounded-lg" 
+                                                         src="{{ asset('storage/' . $product->image_path) }}" 
+                                                         alt="{{ $product->product_name }}">
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {{ $product->product_name }}
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                    {{ Str::limit($product->description, 100) }}
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900 dark:text-white">
+                                                    LKR {{ number_format($product->price, 2) }}
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                    {{ $product->category }}
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                    {{ $product->user->name }}
+                                                </div>
+                                            </td>
+                                        </tr>
                                     @endforeach
                                 </tbody>
                             </table>

@@ -20,24 +20,26 @@ class Product extends Model
         'image_path',
         'category',
         'user_id',
-        'is_approved',
-        'is_rejected',
         'quantity',
         'is_sold',
         'status',
         'rejection_reason',
         'rejection_note',
-        'resubmitted'
+        'resubmitted',
+        'approved_at'
     ];
 
     // If you want to use attribute casting, for example to ensure that the price is always a float
     protected $casts = [
         'price' => 'float',
         'is_sold' => 'boolean',
-        'is_approved' => 'boolean',
-        'is_rejected' => 'boolean',
         'quantity' => 'integer',
-        'resubmitted' => 'boolean'
+        'resubmitted' => 'boolean',
+        'approved_at' => 'datetime'
+    ];
+
+    protected $attributes = [
+        'status' => 'pending'
     ];
 
     // Accessor for getting the full URL of the image
@@ -88,8 +90,7 @@ class Product extends Model
     // Scope for available products
     public function scopeAvailable($query)
     {
-        return $query->where('is_approved', true)
-                    ->where('is_rejected', false)
+        return $query->where('status', 'approved')
                     ->where('is_sold', false)
                     ->where('quantity', '>', 0);
     }

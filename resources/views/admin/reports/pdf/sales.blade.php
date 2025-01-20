@@ -20,26 +20,70 @@
         }
         .metrics {
             margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
         }
         .metric {
-            margin-bottom: 15px;
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d3748;
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: #718096;
+            font-size: 14px;
+        }
+        .growth {
+            color: #48bb78;
+            font-size: 12px;
+        }
+        .growth.negative {
+            color: #f56565;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 30px;
+            background: white;
         }
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
             text-align: left;
         }
         th {
-            background-color: #f5f5f5;
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        tfoot {
+            font-weight: bold;
+            background-color: #f7fafc;
         }
         .section-title {
-            margin: 20px 0 10px;
+            margin: 30px 0 15px;
             color: #2d3748;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+            font-style: italic;
         }
     </style>
 </head>
@@ -54,74 +98,96 @@
 
     <div class="metrics">
         <div class="metric">
-            <strong>Total Revenue:</strong> LKR {{ number_format($total_revenue, 2) }}
+            <div class="metric-label">Total Revenue</div>
+            <div class="metric-value">LKR {{ number_format($total_revenue, 2) }}</div>
         </div>
         <div class="metric">
-            <strong>Total Orders:</strong> {{ number_format($total_orders) }}
-        </div>
-        <div class="metric">
-            <strong>Average Order Value:</strong> LKR {{ number_format($total_orders > 0 ? $total_revenue / $total_orders : 0, 2) }}
+            <div class="metric-label">Total Orders</div>
+            <div class="metric-value">{{ number_format($total_orders) }}</div>
         </div>
     </div>
 
-    <h2 class="section-title">Sales by Category</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Category</th>
-                <th>Number of Sales</th>
-                <th>Total Revenue</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($category_sales as $category)
-            <tr>
-                <td>{{ $category->category }}</td>
-                <td>{{ $category->count }}</td>
-                <td>LKR {{ number_format($category->total, 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    <h2 class="section-title">Revenue Trend</h2>
+    @if($revenue_trend->isNotEmpty())
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($revenue_trend as $item)
+                    <tr>
+                        <td>{{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }}</td>
+                        <td>LKR {{ number_format((float)$item['revenue'], 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total</td>
+                    <td>LKR {{ number_format($revenue_trend->sum('revenue'), 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    @else
+        <div class="no-data">No revenue data available for the selected period</div>
+    @endif
 
-    <h2 class="section-title">Payment Methods</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Payment Method</th>
-                <th>Number of Orders</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($payment_methods as $method)
-            <tr>
-                <td>{{ $method->payment_method }}</td>
-                <td>{{ $method->count }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    <h2 class="section-title">Sales by Location</h2>
+    @if($location_sales->isNotEmpty())
+        <table>
+            <thead>
+                <tr>
+                    <th>Location</th>
+                    <th>Orders</th>
+                    <th>Total Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($location_sales as $item)
+                    <tr>
+                        <td>{{ $item['location'] }}</td>
+                        <td>{{ number_format($item['count']) }}</td>
+                        <td>LKR {{ number_format((float)$item['total'], 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total</td>
+                    <td>{{ number_format($location_sales->sum('count')) }}</td>
+                    <td>LKR {{ number_format($location_sales->sum('total'), 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    @else
+        <div class="no-data">No location data available for the selected period</div>
+    @endif
 
     <h2 class="section-title">Recent Orders</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($orders as $order)
-            <tr>
-                <td>{{ $order->order_number }}</td>
-                <td>{{ $order->user->name }}</td>
-                <td>LKR {{ number_format($order->total_amount, 2) }}</td>
-                <td>{{ $order->created_at->format('M d, Y') }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    @if($orders->isNotEmpty())
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($orders as $order)
+                    <tr>
+                        <td>{{ \Carbon\Carbon::parse($order->created_at)->format('M d, Y') }}</td>
+                        <td>{{ $order->user->name }}</td>
+                        <td>LKR {{ number_format($order->price, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <div class="no-data">No orders available for the selected period</div>
+    @endif
 </body>
 </html>

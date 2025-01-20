@@ -7,6 +7,18 @@
 
     <div class="bg-gray-100 dark:bg-gray-900 py-12">
         <div class="container mx-auto px-4">
+        <div class="bg-gray-100 dark:bg-gray-900 py-12">
+        <div class="container mx-auto px-4">
+            <!-- Back to Bundles Link -->
+            <div class="mb-6">
+                <a href="{{ route('shop.bundles') }}" 
+                   class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Bundles
+                </a>
+            </div>
             <!-- Single Bundle Details Section -->
             <div class="flex flex-col lg:flex-row items-start lg:space-x-12 space-y-8 lg:space-y-0">
                 <!-- Product Image Section -->
@@ -30,7 +42,12 @@
                 <div class="w-full lg:w-1/2 space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h1 class="text-4xl font-bold text-gray-900 dark:text-white">{{ $bundle->bundle_name }}</h1>
+                            <div class="flex items-center justify-between">
+                                <h1 class="text-4xl font-bold text-gray-900 dark:text-white">{{ $bundle->bundle_name }}</h1>
+                                <div class="flex items-center space-x-4">
+                                    <x-seller-rating :sellerId="$bundle->user_id" />
+                                </div>
+                            </div>
                             @if($bundle->user->location)
                                 <div class="flex items-center mt-2 text-gray-600 dark:text-gray-400">
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

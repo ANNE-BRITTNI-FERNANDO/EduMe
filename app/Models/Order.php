@@ -15,6 +15,7 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        'seller_id',  
         'order_number',
         'subtotal',
         'delivery_fee',
@@ -90,6 +91,16 @@ class Order extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function sellerRating()
+    {
+        return $this->hasOne(SellerRating::class);
+    }
+
     public function updateDeliveryStatus($status, $description = null)
     {
         $this->delivery_status = $status;
@@ -159,6 +170,22 @@ class Order extends Model
     public function setStatusAttribute($value)
     {
         $this->attributes['delivery_status'] = $value;
+    }
+
+    protected static function booted()
+    {
+        static::created(function ($order) {
+            // Update budget tracking when order is created
+            $budgetTracking = BudgetTracking::where('user_id', $order->user_id)
+                ->where('cycle_end_date', '>', now())
+                ->first();
+            
+            if ($budgetTracking) {
+                $budgetTracking->spent_amount += $order->total_amount;
+                $budgetTracking->remaining_amount = max(0, $budgetTracking->total_amount - $budgetTracking->spent_amount);
+                $budgetTracking->save();
+            }
+        });
     }
 
     public static function boot()

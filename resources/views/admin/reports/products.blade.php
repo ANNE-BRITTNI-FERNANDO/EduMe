@@ -52,9 +52,12 @@
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Products</dt>
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Products & Bundles</dt>
                                     <dd class="flex items-baseline">
-                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($total_products) }}</div>
+                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($total_products + $total_bundles) }}</div>
+                                        <div class="ml-2 text-sm text-gray-500">
+                                            ({{ number_format($total_products) }} Products, {{ number_format($total_bundles) }} Bundles)
+                                        </div>
                                     </dd>
                                 </dl>
                             </div>
@@ -73,11 +76,23 @@
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">New Products</dt>
-                                    <dd class="flex items-baseline">
-                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($new_products) }}</div>
-                                        <div class="ml-2 flex items-baseline text-sm font-semibold {{ $products_growth >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $products_growth >= 0 ? '+' : '' }}{{ number_format($products_growth, 1) }}%
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">New Items</dt>
+                                    <dd class="flex flex-col">
+                                        <div class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($new_products + $new_bundles) }}</div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold">
+                                                <span class="text-gray-500">(Products: </span>
+                                                <span class="{{ $products_growth >= 0 ? 'text-green-600' : 'text-red-600' }} mx-1">
+                                                    {{ $products_growth >= 0 ? '+' : '' }}{{ number_format($products_growth, 1) }}%
+                                                </span>
+                                                <span class="text-gray-500">)</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-baseline mt-1">
+                                            <span class="text-gray-500">Bundles: </span>
+                                            <span class="{{ $bundles_growth >= 0 ? 'text-green-600' : 'text-red-600' }} ml-1">
+                                                {{ $bundles_growth >= 0 ? '+' : '' }}{{ number_format($bundles_growth, 1) }}%
+                                            </span>
                                         </div>
                                     </dd>
                                 </dl>
@@ -86,7 +101,7 @@
                     </div>
                 </div>
 
-                <!-- Sold Products -->
+                <!-- Sold Items -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                     <div class="p-6">
                         <div class="flex items-center">
@@ -97,9 +112,13 @@
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Sold Products</dt>
-                                    <dd class="flex items-baseline">
-                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($sold_products) }}</div>
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Sold Items</dt>
+                                    <dd class="flex flex-col">
+                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($sold_products + $sold_bundles) }}</div>
+                                        <div class="text-sm text-gray-500">
+                                            Products: {{ number_format($sold_products) }}<br>
+                                            Bundles: {{ number_format($sold_bundles) }}
+                                        </div>
                                     </dd>
                                 </dl>
                             </div>
@@ -119,8 +138,14 @@
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
-                                    <dd class="flex items-baseline">
-                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">LKR {{ number_format($total_revenue, 2) }}</div>
+                                    <dd class="flex flex-col">
+                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">
+                                            LKR {{ number_format($total_product_revenue + $total_bundle_revenue, 2) }}
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            Products: LKR {{ number_format($total_product_revenue, 2) }}<br>
+                                            Bundles: LKR {{ number_format($total_bundle_revenue, 2) }}
+                                        </div>
                                     </dd>
                                 </dl>
                             </div>
@@ -131,150 +156,186 @@
 
             <!-- Charts Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <!-- Daily New Products -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Products Trend</h3>
-                    <div id="daily-products-chart"></div>
+                <!-- Daily New Items -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily New Items</h3>
+                        <div id="daily-items-chart"></div>
+                    </div>
                 </div>
 
                 <!-- Category Distribution -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Distribution</h3>
-                    <div id="category-distribution-chart"></div>
-                </div>
-            </div>
-
-            <!-- Recent Products -->
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-                <div class="p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Products</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-700">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Listed By</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                @foreach($recent_products as $product)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $product->product_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $product->category }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">LKR {{ number_format($product->price, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        @if($product->is_sold)
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sold</span>
-                                        @else
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Available</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $product->user->name }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Distribution</h3>
+                        <div id="category-chart"></div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Show/hide custom date inputs based on period selection
-            const periodSelect = document.getElementById('period');
-            const customDateInputs = document.getElementById('customDateInputs');
-            
-            periodSelect.addEventListener('change', function() {
-                customDateInputs.style.display = this.value === 'custom' ? 'flex' : 'none';
-            });
+            <!-- Recent Items -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Recent Products -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Products</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Product</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Seller</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($recent_products as $product)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ $product->product_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ $product->user->name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">LKR {{ number_format($product->price, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $product->is_sold ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
+                                                {{ $product->is_sold ? 'Sold' : 'Available' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-            // Daily New Products Chart
-            if (@json($daily_new_products->count()) > 0) {
-                const dailyData = @json($daily_new_products->pluck('count'));
-                const dailyDates = @json($daily_new_products->pluck('date'));
-                
-                const dailyOptions = {
+                <!-- Recent Bundles -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Bundles</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bundle</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Seller</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
+                                        <th class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($recent_bundles as $bundle)
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ $bundle->bundle_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ $bundle->user->name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">LKR {{ number_format($bundle->price, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $bundle->is_sold ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
+                                                {{ $bundle->is_sold ? 'Sold' : 'Available' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @push('scripts')
+            <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+            <script>
+                // Daily Items Chart
+                var dailyItemsOptions = {
                     series: [{
-                        name: 'New Products',
-                        data: dailyData
+                        name: 'Products',
+                        data: @json($daily_new_products->pluck('count')),
+                    }, {
+                        name: 'Bundles',
+                        data: @json($daily_new_bundles->pluck('count')),
                     }],
                     chart: {
-                        type: 'area',
+                        type: 'line',
                         height: 350,
                         toolbar: {
                             show: false
                         }
                     },
-                    dataLabels: {
-                        enabled: false
-                    },
                     stroke: {
-                        curve: 'smooth'
+                        curve: 'smooth',
+                        width: 2
                     },
                     xaxis: {
-                        type: 'datetime',
-                        categories: dailyDates
-                    },
-                    tooltip: {
-                        x: {
-                            format: 'dd MMM yyyy'
+                        categories: @json($daily_new_products->pluck('date')),
+                        labels: {
+                            style: {
+                                colors: '#6B7280'
+                            }
                         }
                     },
-                    fill: {
-                        type: 'gradient',
-                        gradient: {
-                            shadeIntensity: 1,
-                            opacityFrom: 0.7,
-                            opacityTo: 0.9,
-                            stops: [0, 100]
+                    yaxis: {
+                        labels: {
+                            style: {
+                                colors: '#6B7280'
+                            }
                         }
+                    },
+                    legend: {
+                        position: 'top'
+                    },
+                    grid: {
+                        borderColor: '#E5E7EB'
                     }
                 };
 
-                const dailyChart = new ApexCharts(document.querySelector("#daily-products-chart"), dailyOptions);
-                dailyChart.render();
-            } else {
-                document.querySelector("#daily-products-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No data available for the selected period</div>';
-            }
+                var dailyItemsChart = new ApexCharts(document.querySelector("#daily-items-chart"), dailyItemsOptions);
+                dailyItemsChart.render();
 
-            // Category Distribution Chart
-            if (@json($category_distribution->count()) > 0) {
-                const categoryData = @json($category_distribution->pluck('count'));
-                const categoryLabels = @json($category_distribution->pluck('category'));
-                
-                const categoryOptions = {
-                    series: categoryData,
+                // Category Distribution Chart
+                var categoryOptions = {
+                    series: @json($category_distribution->pluck('count')),
+                    labels: @json($category_distribution->pluck('category')),
                     chart: {
                         type: 'donut',
-                        height: 350
+                        height: 350,
+                        toolbar: {
+                            show: false
+                        }
                     },
-                    labels: categoryLabels,
-                    responsive: [{
-                        breakpoint: 480,
-                        options: {
-                            chart: {
-                                width: 200
-                            },
-                            legend: {
-                                position: 'bottom'
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            colors: '#6B7280'
+                        }
+                    },
+                    stroke: {
+                        show: false
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val, opts) {
+                            return opts.w.config.series[opts.seriesIndex] + ' (' + Math.round(val) + '%)'
+                        }
+                    },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '50%'
                             }
                         }
-                    }]
+                    },
+                    colors: ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
                 };
 
-                const categoryChart = new ApexCharts(document.querySelector("#category-distribution-chart"), categoryOptions);
+                var categoryChart = new ApexCharts(document.querySelector("#category-chart"), categoryOptions);
                 categoryChart.render();
-            } else {
-                document.querySelector("#category-distribution-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No data available for the selected period</div>';
-            }
-        });
-    </script>
-    @endpush
+
+                // Date range picker functionality
+                document.getElementById('period').addEventListener('change', function() {
+                    var customInputs = document.getElementById('customDateInputs');
+                    customInputs.style.display = this.value === 'custom' ? 'flex' : 'none';
+                });
+            </script>
+            @endpush
+
 </x-app-layout>

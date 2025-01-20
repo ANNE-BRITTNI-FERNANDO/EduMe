@@ -4,10 +4,16 @@
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                 {{ __('My Bundles') }}
             </h2>
-            <a href="{{ route('seller.bundles.create') }}" 
-               class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md">
-                Create New Bundle
-            </a>
+            <div class="flex space-x-4">
+                <a href="{{ route('seller.dashboard') }}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
+                    Back to Dashboard
+                </a>
+                <a href="{{ route('seller.bundles.create') }}" 
+                   class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md">
+                    Create New Bundle
+                </a>
+            </div>
         </div>
     </x-slot>
 

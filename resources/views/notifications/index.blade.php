@@ -48,6 +48,12 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4"></path>
                                             </svg>
                                         </div>
+                                    @elseif($notificationType === 'DonationApprovedNotification' || $notificationType === 'DonationRejectedNotification')
+                                        <div class="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+                                            <svg class="h-6 w-6 text-orange-500 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 110-4 2 2 0 010 4zm0 2c-1.105 0-2 .805-2 1.8s.895 1.8 2 1.8 2-.805 2-1.8-.895-1.8-2-1.8z"></path>
+                                            </svg>
+                                        </div>
                                     @else
                                         <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                                             <svg class="h-6 w-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,16 +64,18 @@
                                 </div>
 
                                 <div class="ml-4 flex-1">
-                                    <div class="flex justify-between items-start">
-                                        <div class="space-y-1">
+                                    <div class="flex justify-between">
+                                        <div>
                                             @if($notificationType === 'NewOrderNotification')
                                                 <p class="font-semibold text-gray-900 dark:text-gray-100">New Order Received</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">Order #{{ $notification->data['order_id'] }}</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">Amount: LKR {{ number_format($notification->data['amount'], 2) }}</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">From: {{ $notification->data['buyer_name'] }}</p>
-                                                <a href="{{ route('orders.show', $notification->data['order_id']) }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                <a href="{{ route('seller.orders.show', $notification->data['order_id']) }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
                                                     View Order Details
-                                                    <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                    </svg>
                                                 </a>
                                             @elseif($notificationType === 'NewMessage')
                                                 <p class="font-semibold text-gray-900 dark:text-gray-100">New Message from {{ $notification->data['sender_name'] }}</p>
@@ -79,17 +87,12 @@
                                                     <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                                                 </a>
                                             @elseif($notificationType === 'BundleSubmittedForReview')
-                                                <p class="font-semibold text-gray-900 dark:text-gray-100">New Bundle Submission</p>
+                                                <p class="font-semibold text-gray-900 dark:text-gray-100">New Bundle Submitted</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">Bundle: {{ $notification->data['bundle_name'] }}</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">Seller: {{ $notification->data['seller_name'] }}</p>
                                                 @if(auth()->user()->role === 'admin')
-                                                    <a href="{{ route('admin.bundles.show', $notification->data['bundle_id']) }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
-                                                        Review Bundle
-                                                        <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                                                    </a>
-                                                @else
-                                                    <a href="{{ route('seller.bundles.show', $notification->data['bundle_id']) }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
-                                                        View Bundle
+                                                    <a href="{{ route('admin.bundles.index') }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                        Review Bundles
                                                         <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                                                     </a>
                                                 @endif
@@ -107,8 +110,8 @@
                                                         <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                                                     </a>
                                                 @else
-                                                    <a href="{{ route('bundles.show', $notification->data['bundle_id']) }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
-                                                        View Bundle
+                                                    <a href="{{ route('seller.bundles.index') }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                        View Bundles
                                                         <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                                                     </a>
                                                 @endif
@@ -190,25 +193,62 @@
                                                     View Details
                                                     <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                                                 </a>
+                                            @elseif($notificationType === 'DonationApprovedNotification')
+                                                <p class="font-semibold text-gray-900 dark:text-gray-100">Your donation request has been approved</p>
+                                                <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                                    <p><span class="font-medium">Item:</span> {{ $notification->data['item_name'] ?? 'N/A' }}</p>
+                                                    @if(isset($notification->data['category']))
+                                                        <p><span class="font-medium">Category:</span> {{ ucfirst($notification->data['category']) }}</p>
+                                                    @endif
+                                                    @if(isset($notification->data['education_level']))
+                                                        <p><span class="font-medium">Education Level:</span> {{ ucfirst(str_replace('_', ' ', $notification->data['education_level'])) }}</p>
+                                                    @endif
+                                                    @if(isset($notification->data['quantity']))
+                                                        <p><span class="font-medium">Quantity:</span> {{ $notification->data['quantity'] }}</p>
+                                                    @endif
+                                                </div>
+                                                <a href="{{ route('donations.index') }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                    <span>View Donations</span>
+                                                    <svg class="ml-1.5 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                    </svg>
+                                                </a>
+                                            @elseif($notificationType === 'DonationRejectedNotification')
+                                                <p class="font-semibold text-gray-900 dark:text-gray-100">Your donation request was not approved</p>
+                                                <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                                    <p><span class="font-medium">Item:</span> {{ $notification->data['item_name'] }}</p>
+                                                    <p><span class="font-medium">Category:</span> {{ ucfirst($notification->data['category']) }}</p>
+                                                    <p><span class="font-medium">Education Level:</span> {{ ucfirst(str_replace('_', ' ', $notification->data['education_level'])) }}</p>
+                                                    <p><span class="font-medium">Quantity:</span> {{ $notification->data['quantity'] }}</p>
+                                                    @if(isset($notification->data['rejection_reason']))
+                                                        <p class="mt-1"><span class="font-medium">Reason:</span> {{ $notification->data['rejection_reason'] }}</p>
+                                                    @endif
+                                                </div>
+                                                <a href="{{ route('donations.create') }}" class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-900">
+                                                    <span>Create New Donation</span>
+                                                    <svg class="ml-1.5 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                    </svg>
+                                                </a>
                                             @else
                                                 <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $notification->data['title'] ?? 'Notification' }}</p>
                                                 <p class="text-sm text-gray-600 dark:text-gray-400">{{ $notification->data['message'] ?? '' }}</p>
                                             @endif
                                         </div>
-                                        <div class="flex items-center space-x-4">
-                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                        <div class="text-right">
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ $notification->created_at->format('M j, Y g:i A') }}
+                                                <span class="text-gray-400 mx-1">•</span>
                                                 {{ $notification->created_at->diffForHumans() }}
-                                            </span>
-                                            @if(!$notification->read_at)
-                                                <form action="{{ route('notifications.mark-as-read', $notification->id) }}" method="POST" class="inline">
+                                            </div>
+                                            @unless($notification->read_at)
+                                                <form method="POST" action="{{ route('notifications.mark-as-read', $notification->id) }}" class="mt-2">
                                                     @csrf
-                                                    <button type="submit" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                                        </svg>
+                                                    <button type="submit" class="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                        Mark as read
                                                     </button>
                                                 </form>
-                                            @endif
+                                            @endunless
                                         </div>
                                     </div>
                                 </div>

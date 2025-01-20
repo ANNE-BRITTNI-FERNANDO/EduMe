@@ -35,7 +35,7 @@
             </div>
 
             <!-- Donate Button with Soft Hover Effect -->
-            <a href="{{ route('doner') }}" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+            <a href="{{ route('donor.index') }}" class="bg-indigo-700 hover:bg-indigo-600 text-white px-8 sm:px-6 md:px-10 py-4 sm:py-5 rounded-full text-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
                 Donate
             </a>
 

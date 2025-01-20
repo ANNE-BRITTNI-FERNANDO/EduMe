@@ -14,6 +14,8 @@ use App\Models\Product; // Add the Product model to the namespace
 use App\Models\PayoutRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\SellerRating; // Add the SellerRating model to the namespace
+use App\Models\DonationItem;
 
 class User extends Authenticatable
 {
@@ -29,9 +31,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
+        'nic',
         'phone',
         'address',
+        'user_type', // donor, recipient, admin
+        'institution_name',
+        'institution_registration_number',
+        'role',
         'province',
         'location',
         'is_seller',
@@ -133,6 +139,58 @@ class User extends Authenticatable
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the ratings received by the user.
+     */
+    public function ratings()
+    {
+        return $this->hasMany(SellerRating::class, 'seller_id');
+    }
+
+    /**
+     * Get the ratings given by the user.
+     */
+    public function givenRatings()
+    {
+        return $this->hasMany(SellerRating::class, 'buyer_id');
+    }
+
+    /**
+     * Get the average rating of the user.
+     */
+    public function averageRating()
+    {
+        return $this->ratings()->avg('rating') ?? 0;
+    }
+
+    /**
+     * Get the total ratings of the user.
+     */
+    public function totalRatings()
+    {
+        return $this->ratings()->count();
+    }
+
+    /**
+     * Get the donation items that belong to the user.
+     */
+    public function donationItems()
+    {
+        return $this->hasMany(DonationItem::class);
+    }
+
+    /**
+     * Get the rating distribution of the user.
+     */
+    public function getRatingDistribution()
+    {
+        $distribution = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $distribution[$i] = $this->ratings()->where('rating', $i)->count();
+        }
+        return $distribution;
     }
 
     /**

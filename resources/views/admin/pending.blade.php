@@ -14,23 +14,21 @@
                         <div class="flex-1 min-w-[200px]">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
                             <select name="sort" class="form-select block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700" onchange="this.form.submit()">
-                                <option value="latest" {{ $currentSort === 'latest' ? 'selected' : '' }}>Latest First</option>
-                                <option value="oldest" {{ $currentSort === 'oldest' ? 'selected' : '' }}>Oldest First</option>
-                                <option value="price_high" {{ $currentSort === 'price_high' ? 'selected' : '' }}>Price: High to Low</option>
-                                <option value="price_low" {{ $currentSort === 'price_low' ? 'selected' : '' }}>Price: Low to High</option>
+                                <option value="latest" {{ $currentSort == 'latest' ? 'selected' : '' }}>Latest First</option>
+                                <option value="oldest" {{ $currentSort == 'oldest' ? 'selected' : '' }}>Oldest First</option>
+                                <option value="price_asc" {{ $currentSort == 'price_asc' ? 'selected' : '' }}>Price: Low to High</option>
+                                <option value="price_desc" {{ $currentSort == 'price_desc' ? 'selected' : '' }}>Price: High to Low</option>
                             </select>
                         </div>
-                        <div class="flex-1 min-w-[200px]">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Category</label>
-                            <select name="category" class="form-select block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700" onchange="this.form.submit()">
-                                <option value="all">All Categories</option>
-                                @foreach($categories as $category)
-                                    <option value="{{ $category }}" {{ $currentCategory === $category ? 'selected' : '' }}>
-                                        {{ $category }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+       <div class="flex-1 min-w-[200px]">
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Category</label>
+           <select name="category" class="form-select block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700" onchange="this.form.submit()">
+               <option value="all">All Categories</option>
+               @foreach($categories as $value => $label)
+                   <option value="{{ $value }}" {{ request('category') == $value ? 'selected' : '' }}>{{ $label }}</option>
+               @endforeach
+           </select>
+       </div>
                     </form>
                 </div>
             </div>
@@ -132,24 +130,25 @@
                                         <div class="space-y-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Rejection Reason</label>
-                                                <select name="rejection_reason" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800">
+                                                <select name="rejection_reason" required class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                                                     <option value="">Select a reason</option>
                                                     <option value="inappropriate">Inappropriate Content</option>
-                                                    <option value="quality">Poor Quality</option>
-                                                    <option value="pricing">Incorrect Pricing</option>
-                                                    <option value="description">Insufficient Description</option>
+                                                    <option value="poor_quality">Poor Quality</option>
+                                                    <option value="wrong_category">Wrong Category</option>
+                                                    <option value="incomplete_info">Incomplete Information</option>
+                                                    <option value="pricing_issue">Pricing Issue</option>
                                                     <option value="other">Other</option>
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Additional Notes</label>
-                                                <textarea name="rejection_note" rows="3" 
-                                                          class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800"
-                                                          placeholder="Provide additional details about the rejection..."></textarea>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Additional Notes (Optional)</label>
+                                                <textarea name="rejection_note" rows="3" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700"></textarea>
                                             </div>
                                             <div class="flex justify-end">
-                                                <button type="submit" 
-                                                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                                <button type="button" onclick="hideRejectForm('{{ $product->id }}')" class="mr-3 px-4 py-2 text-gray-600 dark:text-gray-300">
+                                                    Cancel
+                                                </button>
+                                                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
                                                     Confirm Rejection
                                                 </button>
                                             </div>
@@ -178,13 +177,24 @@
         function toggleDetails(id) {
             const details = document.getElementById(id);
             const arrow = document.getElementById('arrow-' + id.split('-')[1]);
-            details.classList.toggle('hidden');
-            arrow.classList.toggle('rotate-180');
+            
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                arrow.classList.add('rotate-180');
+            } else {
+                details.classList.add('hidden');
+                arrow.classList.remove('rotate-180');
+            }
         }
 
         function showRejectForm(productId) {
-            const form = document.getElementById('reject-form-' + productId);
-            form.classList.toggle('hidden');
+            const rejectForm = document.getElementById('reject-form-' + productId);
+            rejectForm.classList.remove('hidden');
+        }
+
+        function hideRejectForm(productId) {
+            const rejectForm = document.getElementById('reject-form-' + productId);
+            rejectForm.classList.add('hidden');
         }
     </script>
 </x-app-layout>

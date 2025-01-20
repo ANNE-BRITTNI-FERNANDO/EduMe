@@ -52,32 +52,108 @@
                 </div>
             </div>
 
-            <!-- Charts Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <!-- Revenue Trend -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend</h3>
-                    <div id="revenue-trend-chart"></div>
-                </div>
+                    <!-- Revenue Trend Table -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mb-6">
+                        <h2 class="text-xl font-semibold mb-4">Revenue Trend</h2>
+                        @if($revenue_trend->isNotEmpty())
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Date
+                                            </th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Revenue
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @foreach($revenue_trend as $item)
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    LKR {{ number_format((float)$item['revenue'], 2) }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="bg-gray-50">
+                                        <tr>
+                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Total
+                                            </td>
+                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
+                                                LKR {{ number_format($revenue_trend->sum('revenue'), 2) }}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-gray-500 text-center py-4">
+                                No revenue data available for the selected period
+                            </div>
+                        @endif
+                    </div>
 
-                <!-- Category Sales -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Sales by Category</h3>
-                    <div id="category-sales-chart"></div>
-                </div>
-
-                <!-- Payment Methods -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Methods</h3>
-                    <div id="payment-methods-chart"></div>
-                </div>
-
-                <!-- Daily Sales Distribution -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Sales Distribution</h3>
-                    <div id="daily-sales-chart"></div>
-                </div>
-            </div>
+                    <!-- Location Sales Table -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                        <h2 class="text-xl font-semibold mb-4">Sales by Location</h2>
+                        @if($location_sales->isNotEmpty())
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Location
+                                            </th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Orders
+                                            </th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Total Revenue
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @foreach($location_sales as $item)
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ $item['location'] }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ number_format($item['count']) }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    LKR {{ number_format((float)$item['total'], 2) }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="bg-gray-50">
+                                        <tr>
+                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Total
+                                            </td>
+                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
+                                                {{ number_format($location_sales->sum('count')) }}
+                                            </td>
+                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
+                                                LKR {{ number_format($location_sales->sum('total'), 2) }}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-gray-500 text-center py-4">
+                                No location data available for the selected period
+                            </div>
+                        @endif
+                    </div>
 
             <!-- Recent Orders Table -->
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
@@ -97,18 +173,23 @@
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @foreach($recent_orders as $order)
                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $order->order_number }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $order->user->name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">LKR {{ number_format($order->total_amount, 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                        {{ ucfirst($order->type) }} #{{ $order->id }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                        {{ $order->user ? $order->user->name : 'N/A' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                        LKR {{ number_format($order->price, 2) }}
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                            @if($order->status === 'completed') bg-green-100 text-green-800 
-                                            @elseif($order->status === 'pending') bg-yellow-100 text-yellow-800
-                                            @else bg-red-100 text-red-800 @endif">
-                                            {{ ucfirst($order->status) }}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Completed
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $order->created_at->format('M d, Y') }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                        {{ $order->updated_at->format('M d, Y') }}
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -118,176 +199,121 @@
             </div>
         </div>
     </div>
-</x-app-layout>
 
-@push('styles')
-    <link href="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.css" rel="stylesheet">
-@endpush
-
-@push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
+    @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Debug data
-            console.log('Revenue Data:', @json($revenue_trend));
-            console.log('Category Data:', @json($category_sales));
-            console.log('Payment Data:', @json($payment_methods));
-            console.log('Daily Data:', @json($daily_sales));
+        // Set default font color based on theme
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        const fontColor = isDarkMode ? '#D1D5DB' : '#374151';
+        
+        Chart.defaults.color = fontColor;
+        Chart.defaults.borderColor = isDarkMode ? '#374151' : '#E5E7EB';
 
-            // Check if elements exist
-            console.log('Revenue Chart Element:', document.querySelector("#revenue-trend-chart"));
-            console.log('Category Chart Element:', document.querySelector("#category-sales-chart"));
-            console.log('Payment Chart Element:', document.querySelector("#payment-methods-chart"));
-            console.log('Daily Chart Element:', document.querySelector("#daily-sales-chart"));
-
-            // Only initialize charts if we have data
-            if (@json($revenue_trend->count()) > 0) {
-                const revenueData = @json($revenue_trend->pluck('revenue'));
-                const revenueDates = @json($revenue_trend->pluck('date'));
-                
-                const revenueOptions = {
-                    series: [{
-                        name: 'Revenue',
-                        data: revenueData
-                    }],
-                    chart: {
-                        type: 'area',
-                        height: 350,
-                        toolbar: {
-                            show: false
-                        }
-                    },
-                    dataLabels: {
-                        enabled: false
-                    },
-                    stroke: {
-                        curve: 'smooth'
-                    },
-                    xaxis: {
-                        type: 'datetime',
-                        categories: revenueDates
-                    },
-                    yaxis: {
-                        labels: {
-                            formatter: function(value) {
-                                return 'LKR ' + value.toFixed(2);
+        // Revenue Trend Chart
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($revenue_trend->pluck('date')->map(function($date) {
+                    return \Carbon\Carbon::parse($date)->format('M d');
+                })) !!},
+                datasets: [{
+                    label: 'Revenue (LKR)',
+                    data: {!! json_encode($revenue_trend->pluck('revenue')) !!},
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'LKR ' + value.toLocaleString();
                             }
-                        }
-                    },
-                    tooltip: {
-                        x: {
-                            format: 'dd MMM yyyy'
-                        }
-                    },
-                    fill: {
-                        type: 'gradient',
-                        gradient: {
-                            shadeIntensity: 1,
-                            opacityFrom: 0.7,
-                            opacityTo: 0.9,
-                            stops: [0, 100]
                         }
                     }
-                };
-
-                const revenueChart = new ApexCharts(document.querySelector("#revenue-trend-chart"), revenueOptions);
-                revenueChart.render();
-            } else {
-                document.querySelector("#revenue-trend-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No revenue data available for the selected period</div>';
+                }
             }
+        });
 
-            if (@json($category_sales->count()) > 0) {
-                const categoryData = @json($category_sales->pluck('total'));
-                const categoryLabels = @json($category_sales->pluck('category'));
-                
-                const categoryOptions = {
-                    series: categoryData,
-                    chart: {
-                        type: 'pie',
-                        height: 350
+        // Location Bar Chart
+        const locationCtx = document.getElementById('locationChart').getContext('2d');
+        new Chart(locationCtx, {
+            type: 'bar',
+            data: {
+                labels: {!! json_encode($location_sales->pluck('location')) !!},
+                datasets: [{
+                    label: 'Revenue',
+                    data: {!! json_encode($location_sales->pluck('total')) !!},
+                    backgroundColor: '#4F46E5',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
                     },
-                    labels: categoryLabels,
-                    responsive: [{
-                        breakpoint: 480,
-                        options: {
-                            chart: {
-                                width: 200
-                            },
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }]
-                };
-
-                const categoryChart = new ApexCharts(document.querySelector("#category-sales-chart"), categoryOptions);
-                categoryChart.render();
-            } else {
-                document.querySelector("#category-sales-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No category data available for the selected period</div>';
-            }
-
-            if (@json($payment_methods->count()) > 0) {
-                const paymentData = @json($payment_methods->pluck('count'));
-                const paymentLabels = @json($payment_methods->pluck('payment_method'));
-                
-                const paymentOptions = {
-                    series: paymentData,
-                    chart: {
-                        type: 'donut',
-                        height: 350
-                    },
-                    labels: paymentLabels,
-                    responsive: [{
-                        breakpoint: 480,
-                        options: {
-                            chart: {
-                                width: 200
-                            },
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }]
-                };
-
-                const paymentChart = new ApexCharts(document.querySelector("#payment-methods-chart"), paymentOptions);
-                paymentChart.render();
-            } else {
-                document.querySelector("#payment-methods-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No payment method data available for the selected period</div>';
-            }
-
-            if (@json($daily_sales->count()) > 0) {
-                const dailyData = @json($daily_sales->pluck('count'));
-                const dailyLabels = @json($daily_sales->pluck('day'));
-                
-                const dailyOptions = {
-                    series: [{
-                        name: 'Orders',
-                        data: dailyData
-                    }],
-                    chart: {
-                        type: 'bar',
-                        height: 350
-                    },
-                    plotOptions: {
-                        bar: {
-                            borderRadius: 4,
-                            horizontal: false,
-                        }
-                    },
-                    dataLabels: {
-                        enabled: false
-                    },
-                    xaxis: {
-                        categories: dailyLabels
+                    title: {
+                        display: true,
+                        text: 'Revenue by Location'
                     }
-                };
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'LKR ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
-                const dailyChart = new ApexCharts(document.querySelector("#daily-sales-chart"), dailyOptions);
-                dailyChart.render();
-            } else {
-                document.querySelector("#daily-sales-chart").innerHTML = '<div class="text-center py-4 text-gray-500">No daily sales data available for the selected period</div>';
+        // Location Pie Chart
+        const locationPieCtx = document.getElementById('locationPieChart').getContext('2d');
+        new Chart(locationPieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {!! json_encode($location_sales->pluck('location')) !!},
+                datasets: [{
+                    data: {!! json_encode($location_sales->pluck('count')) !!},
+                    backgroundColor: [
+                        '#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981',
+                        '#6366F1', '#8B5CF6', '#F43F5E', '#FBBF24', '#34D399'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Order Distribution'
+                    }
+                }
             }
         });
     </script>
-@endpush
+    @endpush
+</x-app-layout>

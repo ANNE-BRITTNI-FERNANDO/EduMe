@@ -16,6 +16,7 @@ class Conversation extends Model
         'seller_id',
         'product_id',
         'bundle_id',
+        'donation_request_id',
         'last_message_at'
     ];
 
@@ -48,6 +49,11 @@ class Conversation extends Model
         return $this->belongsTo(Bundle::class);
     }
 
+    public function donationRequest(): BelongsTo
+    {
+        return $this->belongsTo(DonationRequest::class);
+    }
+
     public function lastMessage()
     {
         return $this->messages()->latest()->first();
@@ -56,5 +62,29 @@ class Conversation extends Model
     public function bankTransfers(): HasMany
     {
         return $this->hasMany(BankTransfer::class);
+    }
+
+    public function getOtherParticipant(User $user)
+    {
+        return $user->id === $this->buyer_id ? $this->seller : $this->buyer;
+    }
+
+    public function isDonationChat()
+    {
+        return !is_null($this->donation_request_id);
+    }
+
+    public function getTitle()
+    {
+        if ($this->isDonationChat() && $this->donationRequest && $this->donationRequest->donationItem) {
+            return 'Donation: ' . $this->donationRequest->donationItem->item_name;
+        }
+        if ($this->product) {
+            return $this->product->name;
+        }
+        if ($this->bundle) {
+            return $this->bundle->name;
+        }
+        return 'Conversation';
     }
 }
