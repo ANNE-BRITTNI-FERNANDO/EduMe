@@ -107,8 +107,6 @@ class AdminDashboardController extends Controller
     {
         $product = Product::findOrFail($id);
         $product->status = 'approved';
-        $product->is_approved = true;
-        $product->is_rejected = false;
         $product->rejection_reason = null;
         $product->rejection_note = null;
         $product->approved_at = now();
@@ -131,8 +129,6 @@ class AdminDashboardController extends Controller
         ];
         
         $query = Product::where('status', 'pending')
-                       ->where('is_approved', false)
-                       ->where('is_rejected', false)
                        ->with('user');
         
         // Apply category filter
@@ -183,8 +179,6 @@ class AdminDashboardController extends Controller
         ];
         
         $query = Product::where('status', 'approved')
-                       ->where('is_approved', true)
-                       ->where('is_rejected', false)
                        ->with('user');
         
         // Apply category filter
@@ -235,8 +229,6 @@ class AdminDashboardController extends Controller
         ];
         
         $query = Product::where('status', 'rejected')
-                       ->where('is_approved', false)
-                       ->where('is_rejected', true)
                        ->with('user');
         
         // Apply category filter

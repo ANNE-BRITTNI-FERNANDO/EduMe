@@ -21,21 +21,16 @@ class ProductController extends Controller
         if (request('status')) {
             switch (request('status')) {
                 case 'pending':
-                    $query->where('is_approved', false)
-                          ->where('is_rejected', false)
-                          ->where('status', 'pending');
+                    $query->where('status', 'pending');
                     break;
                 case 'approved':
-                    $query->where('is_approved', true)
-                          ->where('is_rejected', false);
+                    $query->where('status', 'approved');
                     break;
                 case 'rejected':
-                    $query->where('is_rejected', true);
+                    $query->where('status', 'rejected');
                     break;
                 case 'resubmitted':
-                    $query->where('status', 'resubmitted')
-                          ->where('is_approved', false)
-                          ->where('is_rejected', false);
+                    $query->where('status', 'resubmitted');
                     break;
             }
         }
@@ -55,16 +50,13 @@ class ProductController extends Controller
         $stats = [
             'total' => Product::where('user_id', auth()->id())->count(),
             'pending' => Product::where('user_id', auth()->id())
-                ->where('is_approved', false)
-                ->where('is_rejected', false)
                 ->where('status', 'pending')
                 ->count(),
             'approved' => Product::where('user_id', auth()->id())
-                ->where('is_approved', true)
-                ->where('is_rejected', false)
+                ->where('status', 'approved')
                 ->count(),
             'rejected' => Product::where('user_id', auth()->id())
-                ->where('is_rejected', true)
+                ->where('status', 'rejected')
                 ->count()
         ];
 
@@ -115,7 +107,8 @@ class ProductController extends Controller
                 'price' => $request->price,
                 'category' => $request->category,
                 'image_path' => $imagePath,
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
+                'status' => 'pending'
             ]);
 
             // Handle additional images
@@ -158,8 +151,7 @@ class ProductController extends Controller
     public function adminIndex()
     {
         // Fetch only pending products (not approved and not rejected)
-        $products = Product::where('is_approved', false)
-                          ->where('is_rejected', false)
+        $products = Product::where('status', 'pending')
                           ->orderBy('created_at', 'desc')
                           ->get();
 
@@ -178,8 +170,7 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
             $product->update([
-                'is_approved' => true,
-                'is_rejected' => false
+                'status' => 'approved'
             ]);
 
             return redirect()->back()->with('success', 'Product approved successfully.');
@@ -194,8 +185,7 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
             $product->update([
-                'is_approved' => false,
-                'is_rejected' => true
+                'status' => 'rejected'
             ]);
 
             return redirect()->back()->with('success', 'Product rejected successfully.');
@@ -209,8 +199,7 @@ class ProductController extends Controller
     {
         // Fetch only approved products for the logged-in user
         $approvedProducts = Product::where('user_id', Auth::id())
-                                 ->where('is_approved', true)
-                                 ->where('is_rejected', false)
+                                 ->where('status', 'approved')
                                  ->orderBy('created_at', 'desc')
                                  ->get();
 
@@ -348,8 +337,7 @@ class ProductController extends Controller
         ];
         
         // Start with base query for available products only
-        $query = Product::where('is_approved', true)
-                       ->where('is_rejected', false)
+        $query = Product::where('status', 'approved')
                        ->where('is_sold', false)
                        ->where('quantity', '>', 0);
         
@@ -357,7 +345,7 @@ class ProductController extends Controller
         $buyerLocation = Auth::check() ? Auth::user()->location : null;
 
         // Get all unique locations from users who have products
-        $locations = Product::where('is_approved', true)
+        $locations = Product::where('status', 'approved')
             ->where('is_sold', false)
             ->where('quantity', '>', 0)
             ->join('users', 'products.user_id', '=', 'users.id')
@@ -468,7 +456,7 @@ class ProductController extends Controller
         $selectedCategory = $request->input('category');
         
         // Fetch approved products filtered by the selected category, if any
-        $approvedProducts = Product::where('is_approved', true)
+        $approvedProducts = Product::where('status', 'approved')
             ->when($selectedCategory, function ($query, $category) {
                 return $query->where('category', $category);
             })
@@ -523,7 +511,7 @@ class ProductController extends Controller
     // Advanced product filtering method
     public function advancedFilter(Request $request)
     {
-        $query = Product::query()->where('is_approved', true);
+        $query = Product::query()->where('status', 'approved');
         $buyerLocation = auth()->user()->location;
 
         // Price range filter
@@ -613,21 +601,16 @@ class ProductController extends Controller
         if (request('status')) {
             switch (request('status')) {
                 case 'pending':
-                    $query->where('is_approved', false)
-                          ->where('is_rejected', false)
-                          ->where('status', 'pending');
+                    $query->where('status', 'pending');
                     break;
                 case 'approved':
-                    $query->where('is_approved', true)
-                          ->where('is_rejected', false);
+                    $query->where('status', 'approved');
                     break;
                 case 'rejected':
-                    $query->where('is_rejected', true);
+                    $query->where('status', 'rejected');
                     break;
                 case 'resubmitted':
-                    $query->where('status', 'resubmitted')
-                          ->where('is_approved', false)
-                          ->where('is_rejected', false);
+                    $query->where('status', 'resubmitted');
                     break;
             }
         }
@@ -647,16 +630,13 @@ class ProductController extends Controller
         $stats = [
             'total' => Product::where('user_id', auth()->id())->count(),
             'pending' => Product::where('user_id', auth()->id())
-                ->where('is_approved', false)
-                ->where('is_rejected', false)
                 ->where('status', 'pending')
                 ->count(),
             'approved' => Product::where('user_id', auth()->id())
-                ->where('is_approved', true)
-                ->where('is_rejected', false)
+                ->where('status', 'approved')
                 ->count(),
             'rejected' => Product::where('user_id', auth()->id())
-                ->where('is_rejected', true)
+                ->where('status', 'rejected')
                 ->count()
         ];
 
@@ -670,8 +650,7 @@ class ProductController extends Controller
             abort(403, 'Access denied. Admin only area.');
         }
 
-        $products = Product::where('is_approved', true)
-                          ->where('is_rejected', false)
+        $products = Product::where('status', 'approved')
                           ->orderBy('created_at', 'desc')
                           ->get();
 
@@ -725,8 +704,6 @@ class ProductController extends Controller
             $product->price = $request->price;
             $product->category = $request->category;
             $product->status = 'resubmitted'; // Set status to resubmitted
-            $product->is_approved = false;
-            $product->is_rejected = false;
             $product->rejection_reason = null; // Clear previous rejection reason
             $product->rejection_note = null;   // Clear previous rejection note
 
@@ -767,8 +744,6 @@ class ProductController extends Controller
             \Log::info('Product resubmitted:', [
                 'product_id' => $product->id,
                 'new_status' => $product->status,
-                'is_approved' => $product->is_approved,
-                'is_rejected' => $product->is_rejected
             ]);
 
             // Notify admin about the resubmitted product

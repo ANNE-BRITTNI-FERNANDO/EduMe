@@ -112,16 +112,26 @@ class DonorController extends Controller
             $query->where('education_level', $request->education_level);
         }
 
+        // Apply condition filter
+        if ($request->filled('condition')) {
+            $query->where('condition', $request->condition);
+        }
+
         $donations = $query->latest()->paginate(12);
 
-        // Add locations for the filter
-        $locations = [
-            'central' => 'Central Region',
-            'north' => 'Northern Region',
-            'south' => 'Southern Region',
-            'east' => 'Eastern Region',
-            'west' => 'Western Region'
-        ];
+        // Get all available locations from filtered donations
+        $locations = $query->get()
+            ->map(function($donation) {
+                return $donation->user->location;
+            })
+            ->filter()  // Remove null/empty locations
+            ->reject(function($location) {
+                return $location == 'Not specified' || empty($location);
+            })
+            ->unique()
+            ->sort()
+            ->values()
+            ->toArray();
 
         return view('donations.available', compact('donations', 'locations'));
     }

@@ -38,7 +38,7 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
-        $products = $query->paginate(10)->withQueryString();
+        $products = $query->paginate(6)->withQueryString();
         $categories = Product::distinct('category')->pluck('category', 'category');
 
         return view('admin.pending', compact('products', 'categories', 'currentSort'));
@@ -53,8 +53,6 @@ class ProductController extends Controller
         ]);
 
         $product->status = $request->status;
-        $product->is_approved = ($request->status === 'approved');
-        $product->is_rejected = ($request->status === 'rejected');
         
         if ($request->status === 'rejected') {
             $product->rejection_reason = $request->rejection_reason;
@@ -85,8 +83,14 @@ class ProductController extends Controller
 
     public function approved(Request $request)
     {
-        $query = Product::where('status', 'approved')
+        $query = Product::query()  // Start with a fresh query
+            ->where('status', '=', 'approved')  // Be explicit with the comparison
             ->with(['user', 'productImages']);
+
+        \Log::info('Approved products query', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings()
+        ]);
 
         // Apply sorting
         $currentSort = $request->get('sort', 'latest');
@@ -110,7 +114,20 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
-        $products = $query->paginate(10)->withQueryString();
+        $products = $query->simplePaginate(6)->withQueryString();
+
+        \Log::info('Approved products result', [
+            'count' => $products->count(),
+            'total' => $products->total(),
+            'products' => collect($products->items())->map(function($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->product_name,
+                    'status' => $product->status
+                ];
+            })
+        ]);
+
         $categories = Product::distinct('category')->pluck('category', 'category');
 
         return view('admin.approved', compact('products', 'categories', 'currentSort'));
@@ -143,7 +160,7 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
-        $products = $query->paginate(10)->withQueryString();
+        $products = $query->paginate(6)->withQueryString();
         $categories = Product::distinct('category')->pluck('category', 'category');
 
         return view('admin.rejected', compact('products', 'categories', 'currentSort'));

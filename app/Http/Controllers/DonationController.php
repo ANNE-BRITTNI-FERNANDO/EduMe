@@ -75,11 +75,12 @@ class DonationController extends Controller
     public function available(Request $request)
     {
         try {
+            // First get all approved donations with quantity > 0
             $query = DonationItem::where('status', 'approved')
                 ->where('available_quantity', '>', 0)
-                ->with('user'); // Eager load user data for location info
+                ->with('user');
 
-            // Apply filters
+            // Apply filters except location first
             if ($request->filled('category')) {
                 $query->where('category', $request->category);
             }
@@ -89,95 +90,29 @@ class DonationController extends Controller
             if ($request->filled('condition')) {
                 $query->where('condition', $request->condition);
             }
+
+            // Get all available locations from filtered donations
+            $locations = $query->get()
+                ->map(function($donation) {
+                    return $donation->user->location;
+                })
+                ->filter()  // Remove null/empty locations
+                ->reject(function($location) {
+                    return $location == 'Not specified' || empty($location);
+                })
+                ->unique()
+                ->sort()
+                ->values()
+                ->toArray();
+
+            // Now apply location filter if present
             if ($request->filled('location')) {
                 $query->whereHas('user', function($q) use ($request) {
                     $q->where('location', $request->location);
                 });
             }
 
-            // Get unique locations from users who have active donations
-            $locationsQuery = DB::table('users')
-                ->join('donation_items', 'users.id', '=', 'donation_items.user_id')
-                ->where('donation_items.status', 'approved')
-                ->where('donation_items.available_quantity', '>', 0)
-                ->where('users.location', '!=', 'Not specified')
-                ->select('users.location')
-                ->distinct();
-
-            $locations = $locationsQuery->pluck('location')->sort()->values()->toArray();
-
-            $donations = $query->latest()->paginate(12);
-            
-            // Format education levels for display
-            $donations->getCollection()->transform(function ($donation) {
-                $donation->education_level = $this->formatEducationLevel($donation->education_level);
-                return $donation;
-            });
-            
-            // Maintain filter parameters in pagination
-            $donations->appends($request->all());
-
-            return view('donations.available', [
-                'donations' => $donations,
-                'locations' => $locations ?? [],
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error in available donations: ' . $e->getMessage());
-            return view('donations.available', [
-                'donations' => collect([]),
-                'locations' => [],
-            ])->with('error', 'An error occurred while loading donations. Please try again.');
-        }
-    }
-
-    private function formatEducationLevel($level)
-    {
-        $levels = [
-            'primary' => 'Primary School',
-            'secondary' => 'Secondary School',
-            'higher_secondary' => 'Higher Secondary',
-            'undergraduate' => 'Undergraduate',
-            'postgraduate' => 'Postgraduate'
-        ];
-
-        return $levels[$level] ?? ucfirst(str_replace('_', ' ', $level));
-    }
-
-    public function availableUpdated(Request $request)
-    {
-        try {
-            $query = DonationItem::where('status', 'approved')
-                ->where('available_quantity', '>', 0)
-                ->with('user'); // Eager load user data for location info
-
-            // Apply filters
-            if ($request->filled('category')) {
-                $query->where('category', $request->category);
-            }
-            if ($request->filled('education_level')) {
-                $query->where('education_level', $request->education_level);
-            }
-            if ($request->filled('condition')) {
-                $query->where('condition', $request->condition);
-            }
-            if ($request->filled('location')) {
-                $query->whereHas('user', function($q) use ($request) {
-                    $q->where('location', $request->location);
-                });
-            }
-
-            // Get unique locations from users who have active donations
-            $locationsQuery = DB::table('users')
-                ->join('donation_items', 'users.id', '=', 'donation_items.user_id')
-                ->where('donation_items.status', 'approved')
-                ->where('donation_items.available_quantity', '>', 0)
-                ->where('users.location', '!=', 'Not specified')
-                ->select('users.location')
-                ->distinct();
-
-            $locations = $locationsQuery->pluck('location')->sort()->values()->toArray();
-
+            // Get the final filtered and paginated donations
             $donations = $query->latest()->paginate(12);
             
             // Format education levels for display
@@ -253,7 +188,7 @@ class DonationController extends Controller
             if ($request->hasFile('images')) {
                 $uploadedImages = [];
                 foreach ($request->file('images') as $image) {
-                    $path = $image->store('donations', 'public');
+                    $path = $image->store('donation-images', 'public');
                     $uploadedImages[] = $path;
                 }
                 $donationData['images'] = $uploadedImages;
@@ -555,5 +490,18 @@ class DonationController extends Controller
         ]);
         
         return back()->with('success', 'Contact sharing preferences updated successfully.');
+    }
+
+    private function formatEducationLevel($level)
+    {
+        $levels = [
+            'primary' => 'Primary School',
+            'secondary' => 'Secondary School',
+            'higher_secondary' => 'Higher Secondary',
+            'undergraduate' => 'Undergraduate',
+            'postgraduate' => 'Postgraduate'
+        ];
+
+        return $levels[$level] ?? ucfirst(str_replace('_', ' ', $level));
     }
 }

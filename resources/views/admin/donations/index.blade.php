@@ -5,7 +5,7 @@
                 Manage Donations
             </h2>
             <a href="{{ route('admin.donations.requests') }}" 
-               class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+               class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
                 <i class="fas fa-inbox mr-2"></i>
                 View Donation Requests
             </a>
@@ -95,7 +95,7 @@
                                                 <div class="text-sm text-gray-500">Category: {{ ucfirst($donation->category) }}</div>
                                                 <div class="text-sm text-gray-500">Condition: {{ ucfirst($donation->condition) }}</div>
                                                 <div class="text-sm text-gray-500">Available: {{ $donation->available_quantity }} of {{ $donation->quantity }}</div>
-                                                <div class="text-sm text-gray-500">Location: {{ $donation->user->address ?? 'Not specified' }}</div>
+                                                <div class="text-sm text-gray-500">Location: {{ $donation->user->location ?? $donation->user->province ?? 'Not specified' }}</div>
                                             </div>
                                             <div class="mt-2">
                                                 <p class="text-sm text-gray-500">{{ $donation->description }}</p>
@@ -111,43 +111,23 @@
                                     <!-- Collapsible Details -->
                                     <div id="donation-{{ $donation->id }}" class="hidden mt-4">
                                         <div class="border-t border-gray-200 pt-4">
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <!-- Product Images -->
-                                                <div>
-                                                    <dt class="text-sm font-medium text-gray-500 mb-2">Product Images</dt>
-                                                    <div class="grid grid-cols-2 gap-2">
-                                                        @if($donation->images)
-                                                            @foreach($donation->images as $image)
-                                                                <div class="relative aspect-[4/3]">
-                                                                    <img src="{{ asset('storage/' . $image) }}" 
-                                                                        alt="Product image" 
-                                                                        class="absolute inset-0 h-full w-full object-cover rounded-lg">
-                                                                </div>
-                                                            @endforeach
-                                                        @else
-                                                            <p class="text-sm text-gray-500">No product images available</p>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                
+                                            <div class="grid grid-cols-1 gap-4">
                                                 <!-- Additional Details -->
                                                 <div>
-                                                    <dl class="grid grid-cols-1 gap-y-4">
-                                                        <div>
+                                                    <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                                                        <div class="sm:col-span-1">
                                                             <dt class="text-sm font-medium text-gray-500">Donated By</dt>
                                                             <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
                                                         </div>
-                                                        <div>
+
+                                                        <div class="sm:col-span-1">
                                                             <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
                                                             <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
                                                         </div>
-                                                        <div>
+
+                                                        <div class="sm:col-span-2">
                                                             <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
                                                             <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt class="text-sm font-medium text-gray-500">Preferred Pickup Date</dt>
-                                                            <dd class="mt-1 text-sm text-gray-900">{{ $donation->preferred_pickup_date ? $donation->preferred_pickup_date->format('Y-m-d') : 'Not specified' }}</dd>
                                                         </div>
                                                     </dl>
                                                 </div>
@@ -155,25 +135,21 @@
                                             
                                             <!-- Action Buttons -->
                                             <div class="mt-4 flex justify-end space-x-3">
-                                                <form action="{{ route('admin.donations.approve', $donation) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                                        Approve
-                                                    </button>
-                                                </form>
-                                                <form action="{{ route('admin.donations.reject', $donation) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                                        Reject
-                                                    </button>
-                                                </form>
-                                                <form action="{{ route('admin.donations.delete', $donation) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                                        Delete
-                                                    </button>
-                                                </form>
+                                                <button type="button" 
+                                                        onclick="handleDonationAction('{{ $donation->id }}', 'approve')"
+                                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                                    Approve
+                                                </button>
+                                                <button type="button"
+                                                        onclick="handleDonationAction('{{ $donation->id }}', 'reject')"
+                                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                    Reject
+                                                </button>
+                                                <button type="button"
+                                                        onclick="handleDonationAction('{{ $donation->id }}', 'delete')"
+                                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                                    Delete
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -241,7 +217,7 @@
                                         <div class="text-sm text-gray-500">Category: {{ ucfirst($donation->category) }}</div>
                                         <div class="text-sm text-gray-500">Condition: {{ ucfirst($donation->condition) }}</div>
                                         <div class="text-sm text-gray-500">Available: {{ $donation->available_quantity }} of {{ $donation->quantity }}</div>
-                                        <div class="text-sm text-gray-500">Location: {{ $donation->user->address ?? 'Not specified' }}</div>
+                                        <div class="text-sm text-gray-500">Location: {{ $donation->user->location ?? $donation->user->province ?? 'Not specified' }}</div>
                                     </div>
                                     <div class="mt-2">
                                         <p class="text-sm text-gray-500">{{ $donation->description }}</p>
@@ -257,43 +233,23 @@
                             <!-- Collapsible Details -->
                             <div id="approved-{{ $donation->id }}" class="hidden mt-4">
                                 <div class="border-t border-gray-200 pt-4">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <!-- Product Images -->
-                                        <div>
-                                            <dt class="text-sm font-medium text-gray-500 mb-2">Product Images</dt>
-                                            <div class="grid grid-cols-2 gap-2">
-                                                @if($donation->images)
-                                                    @foreach($donation->images as $image)
-                                                        <div class="relative aspect-[4/3]">
-                                                            <img src="{{ asset('storage/' . $image) }}" 
-                                                                alt="Product image" 
-                                                                class="absolute inset-0 h-full w-full object-cover rounded-lg">
-                                                        </div>
-                                                    @endforeach
-                                                @else
-                                                    <p class="text-sm text-gray-500">No product images available</p>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        
+                                    <div class="grid grid-cols-1 gap-4">
                                         <!-- Additional Details -->
                                         <div>
-                                            <dl class="grid grid-cols-1 gap-y-4">
-                                                <div>
+                                            <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                                                <div class="sm:col-span-1">
                                                     <dt class="text-sm font-medium text-gray-500">Donated By</dt>
                                                     <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
                                                 </div>
-                                                <div>
+
+                                                <div class="sm:col-span-1">
                                                     <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
                                                     <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
                                                 </div>
-                                                <div>
+
+                                                <div class="sm:col-span-2">
                                                     <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
                                                     <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
-                                                </div>
-                                                <div>
-                                                    <dt class="text-sm font-medium text-gray-500">Preferred Pickup Date</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->preferred_pickup_date ? $donation->preferred_pickup_date->format('Y-m-d') : 'Not specified' }}</dd>
                                                 </div>
                                             </dl>
                                         </div>
@@ -301,19 +257,16 @@
                                     
                                     <!-- Action Buttons -->
                                     <div class="mt-4 flex justify-end space-x-3">
-                                        <form action="{{ route('admin.donations.remove', $donation) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
-                                                Remove from Available
-                                            </button>
-                                        </form>
-                                        <form action="{{ route('admin.donations.delete', $donation) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                                Delete
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                onclick="handleDonationAction('{{ $donation->id }}', 'remove')"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                            Remove from Available
+                                        </button>
+                                        <button type="button"
+                                                onclick="handleDonationAction('{{ $donation->id }}', 'delete')"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -341,7 +294,7 @@
                                         <div class="text-sm text-gray-500">Category: {{ ucfirst($donation->category) }}</div>
                                         <div class="text-sm text-gray-500">Condition: {{ ucfirst($donation->condition) }}</div>
                                         <div class="text-sm text-gray-500">Quantity: {{ $donation->quantity }}</div>
-                                        <div class="text-sm text-gray-500">Location: {{ $donation->user->address ?? 'Not specified' }}</div>
+                                        <div class="text-sm text-gray-500">Location: {{ $donation->user->location ?? $donation->user->province ?? 'Not specified' }}</div>
                                     </div>
                                     <div class="mt-2">
                                         <p class="text-sm text-gray-500">{{ $donation->description }}</p>
@@ -357,43 +310,23 @@
                             <!-- Collapsible Details -->
                             <div id="rejected-{{ $donation->id }}" class="hidden mt-4">
                                 <div class="border-t border-gray-200 pt-4">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <!-- Product Images -->
-                                        <div>
-                                            <dt class="text-sm font-medium text-gray-500 mb-2">Product Images</dt>
-                                            <div class="grid grid-cols-2 gap-2">
-                                                @if($donation->images)
-                                                    @foreach($donation->images as $image)
-                                                        <div class="relative aspect-[4/3]">
-                                                            <img src="{{ asset('storage/' . $image) }}" 
-                                                                alt="Product image" 
-                                                                class="absolute inset-0 h-full w-full object-cover rounded-lg">
-                                                        </div>
-                                                    @endforeach
-                                                @else
-                                                    <p class="text-sm text-gray-500">No product images available</p>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        
+                                    <div class="grid grid-cols-1 gap-4">
                                         <!-- Additional Details -->
                                         <div>
-                                            <dl class="grid grid-cols-1 gap-y-4">
-                                                <div>
+                                            <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                                                <div class="sm:col-span-1">
                                                     <dt class="text-sm font-medium text-gray-500">Donated By</dt>
                                                     <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
                                                 </div>
-                                                <div>
+
+                                                <div class="sm:col-span-1">
                                                     <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
                                                     <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
                                                 </div>
-                                                <div>
-                                                    <dt class="text-sm font-medium text-gray-500">Rejection Reason</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->rejection_reason ?? 'No reason provided' }}</dd>
-                                                </div>
-                                                <div>
-                                                    <dt class="text-sm font-medium text-gray-500">Rejected At</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->rejected_at ? $donation->rejected_at->format('Y-m-d H:i:s') : 'Not specified' }}</dd>
+
+                                                <div class="sm:col-span-2">
+                                                    <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
                                                 </div>
                                             </dl>
                                         </div>
@@ -401,13 +334,11 @@
                                     
                                     <!-- Action Buttons -->
                                     <div class="mt-4 flex justify-end space-x-3">
-                                        <form action="{{ route('admin.donations.delete', $donation) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                                Delete
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                onclick="handleDonationAction('{{ $donation->id }}', 'delete')"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -421,86 +352,75 @@
     </div>
 
     @push('scripts')
-<script>
-function showTab(tab) {
-    // Update URL with the tab parameter
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tab);
-    
-    // Navigate to the new URL
-    window.location.href = url.toString();
-}
-
-function approveDonation(donationId) {
-    if (confirm('Are you sure you want to approve this donation?')) {
-        fetch(`/admin/donations/${donationId}/approve`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.reload();
-            } else {
-                alert(data.message || 'Error approving donation');
+    <script>
+        function toggleDetails(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error processing request');
-        });
-    }
-}
-
-function rejectDonation(donationId) {
-    if (confirm('Are you sure you want to reject this donation?')) {
-        fetch(`/admin/donations/${donationId}/reject`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.reload();
-            } else {
-                alert(data.message || 'Error rejecting donation');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error processing request');
-        });
-    }
-}
-
-function toggleDetails(id) {
-    const element = document.getElementById(id);
-    if (element.classList.contains('hidden')) {
-        element.classList.remove('hidden');
-    } else {
-        element.classList.add('hidden');
-    }
-}
-
-// Initialize carousel items
-document.addEventListener('DOMContentLoaded', function() {
-    const carousels = document.querySelectorAll('.carousel-item');
-    carousels.forEach(function(item, index) {
-        if (index === 0) {
-            item.classList.remove('hidden');
         }
-    });
-});
-</script>
+
+        function showTab(tab) {
+            // Update URL with the tab parameter
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tab);
+            window.history.pushState({}, '', url);
+
+            // Hide all tabs
+            document.getElementById('pending-tab').classList.add('hidden');
+            document.getElementById('approved-tab').classList.add('hidden');
+            document.getElementById('rejected-tab').classList.add('hidden');
+
+            // Show selected tab
+            document.getElementById(tab + '-tab').classList.remove('hidden');
+
+            // Update tab button styles
+            document.querySelectorAll('[role="tab"]').forEach(tab => {
+                tab.setAttribute('aria-selected', 'false');
+                tab.classList.remove('border-indigo-500', 'text-indigo-600');
+                tab.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            const selectedTab = document.querySelector(`[role="tab"][aria-controls="${tab}-tab"]`);
+            if (selectedTab) {
+                selectedTab.setAttribute('aria-selected', 'true');
+                selectedTab.classList.remove('border-transparent', 'text-gray-500');
+                selectedTab.classList.add('border-indigo-500', 'text-indigo-600');
+            }
+        }
+
+        // Handle donation actions
+        async function handleDonationAction(donationId, action) {
+            try {
+                const formData = new FormData();
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+
+                const response = await fetch(`/admin/donations/${donationId}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    },
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show success message
+                    alert(data.message);
+                    // Reload the page to show updated status
+                    window.location.reload();
+                } else {
+                    // Show error message
+                    alert(data.message || 'An error occurred');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing your request');
+            }
+        }
+    </script>
     @endpush
 </x-app-layout>

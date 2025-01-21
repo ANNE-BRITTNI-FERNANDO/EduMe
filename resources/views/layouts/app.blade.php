@@ -154,5 +154,17 @@
                 toastr.warning("{{ Session::get('warning') }}");
             @endif
         </script>
+        @stack('modals')
+
+
+
+        <script>
+            function toggleDetails(id) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.toggle('hidden');
+                }
+            }
+        </script>
     </body>
 </html>

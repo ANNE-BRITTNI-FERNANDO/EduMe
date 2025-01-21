@@ -11,7 +11,8 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
                 <div class="p-6">
                     <form action="{{ route('donations.available') }}" method="GET" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            <!-- Category -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
                                 <select name="category" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
@@ -23,6 +24,7 @@
                                 </select>
                             </div>
 
+                            <!-- Education Level -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Education Level</label>
                                 <select name="education_level" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
@@ -35,6 +37,7 @@
                                 </select>
                             </div>
 
+                            <!-- Condition -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Condition</label>
                                 <select name="condition" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
@@ -46,20 +49,22 @@
                                 </select>
                             </div>
 
+                            <!-- Location -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
                                 <select name="location" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                     <option value="">Any Location</option>
                                     @foreach($locations as $location)
                                         <option value="{{ $location }}" {{ request('location') == $location ? 'selected' : '' }}>
-                                            {{ $location }}
+                                            {{ ucwords(str_replace('_', ' ', $location)) }}
                                         </option>
                                     @endforeach
                                 </select>
                             </div>
 
+                            <!-- Apply Button -->
                             <div class="flex items-end">
-                                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                     Apply Filters
                                 </button>
                             </div>

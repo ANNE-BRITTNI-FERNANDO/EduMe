@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\Admin\AdminBundleController;
+use App\Http\Controllers\Shop\ShopBundleController;
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminOrderController;
@@ -315,7 +316,6 @@ Route::put('/admin/bundles/{id}/update-status', [AdminBundleController::class, '
 // In routes/web.php
 
 // Shop Routes
-use App\Http\Controllers\ShopBundleController;
 Route::get('/shop/bundles', [ShopBundleController::class, 'index'])->name('shop.bundles');
 Route::get('/shop/bundles/{bundle}', [ShopBundleController::class, 'show'])->name('bundles.show');
 

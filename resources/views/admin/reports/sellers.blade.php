@@ -1,43 +1,7 @@
 <x-app-layout>
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Date Filter -->
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
-                <div class="p-6">
-                    <form action="{{ route('admin.reports.sellers') }}" method="GET" class="flex flex-wrap gap-4 items-end">
-                        <div>
-                            <x-input-label for="period" value="Time Period" />
-                            <select id="period" name="period" class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                <option value="today" {{ request('period') === 'today' ? 'selected' : '' }}>Today</option>
-                                <option value="yesterday" {{ request('period') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
-                                <option value="last7days" {{ request('period') === 'last7days' ? 'selected' : '' }}>Last 7 Days</option>
-                                <option value="last30days" {{ request('period') === 'last30days' ? 'selected' : '' }}>Last 30 Days</option>
-                                <option value="thisMonth" {{ request('period') === 'thisMonth' ? 'selected' : '' }}>This Month</option>
-                                <option value="lastMonth" {{ request('period') === 'lastMonth' ? 'selected' : '' }}>Last Month</option>
-                                <option value="custom" {{ request('period') === 'custom' ? 'selected' : '' }}>Custom Range</option>
-                            </select>
-                        </div>
-
-                        <div id="customDateInputs" class="flex gap-4" style="{{ request('period') === 'custom' ? '' : 'display: none;' }}">
-                            <div>
-                                <x-input-label for="start_date" value="Start Date" />
-                                <x-text-input id="start_date" type="date" name="start_date" class="mt-1 block" value="{{ request('start_date') }}" />
-                            </div>
-                            <div>
-                                <x-input-label for="end_date" value="End Date" />
-                                <x-text-input id="end_date" type="date" name="end_date" class="mt-1 block" value="{{ request('end_date') }}" />
-                            </div>
-                        </div>
-
-                        <div class="flex gap-4">
-                            <x-primary-button>Filter</x-primary-button>
-                            <a href="{{ route('admin.reports.download', ['type' => 'sellers']) }}?{{ http_build_query(request()->query()) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:bg-gray-700 dark:focus:bg-white active:bg-gray-900 dark:active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150">
-                                Download Report
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            
 
             <!-- Stats Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -55,9 +19,12 @@
                                     <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Sellers</dt>
                                     <dd class="flex items-baseline">
                                         <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($total_sellers) }}</div>
-                                        <div class="ml-2 flex items-baseline text-sm font-semibold text-gray-600 dark:text-gray-400">
+                                        <div class="ml-2 flex items-baseline text-sm font-semibold text-green-600 dark:text-green-400">
                                             {{ number_format($active_sellers) }} active
                                         </div>
+                                    </dd>
+                                    <dd class="mt-1 text-sm text-gray-500">
+                                        {{ number_format(($active_sellers / $total_sellers) * 100, 1) }}% activity rate
                                     </dd>
                                 </dl>
                             </div>
@@ -93,29 +60,34 @@
                                             </div>
                                         @endif
                                     </dd>
+                                    <dd class="mt-1 text-sm text-gray-500">
+                                        Avg {{ number_format($new_sellers / max(1, $days_in_period), 1) }} new sellers per day
+                                    </dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Seller Engagement -->
+                <!-- Seller Performance -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                     <div class="p-6">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
                                 <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Seller Engagement</dt>
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Seller Performance</dt>
                                     <dd class="mt-1">
-                                        <div class="flex items-baseline text-sm">
-                                            <span class="text-green-600 dark:text-green-400 font-medium">{{ number_format($seller_engagement['highly_active']) }} highly active</span>
-                                            <span class="mx-2 text-gray-500">•</span>
-                                            <span class="text-yellow-600 dark:text-yellow-400 font-medium">{{ number_format($seller_engagement['moderately_active']) }} moderate</span>
+                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">
+                                            {{ number_format($avg_seller_rating, 1) }}
+                                            <span class="text-sm text-yellow-500">★</span>
+                                        </div>
+                                        <div class="mt-1 text-sm text-gray-500">
+                                            {{ number_format($total_seller_reviews) }} total reviews
                                         </div>
                                     </dd>
                                 </dl>
@@ -124,27 +96,87 @@
                     </div>
                 </div>
 
-                <!-- Average Rating -->
+                <!-- Revenue Insights -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                     <div class="p-6">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-                                <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Average Rating</dt>
-                                    <dd class="flex items-baseline">
-                                        <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($average_rating, 1) }}</div>
-                                        <div class="ml-2 flex items-center">
-                                            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                            </svg>
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Revenue Insights</dt>
+                                    <dd class="mt-1">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">Revenue</div>
+                                        <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                                            {{ $avg_revenue_per_seller }}
                                         </div>
                                     </dd>
                                 </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Analysis Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Seller Activity Trends -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Seller Activity Analysis</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Highly Active Sellers</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">
+                                    {{ number_format($seller_engagement['highly_active']) }}
+                                    <span class="text-sm text-gray-500">({{ number_format(($seller_engagement['highly_active'] / $total_sellers) * 100, 1) }}%)</span>
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Moderately Active Sellers</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">
+                                    {{ number_format($seller_engagement['moderately_active']) }}
+                                    <span class="text-sm text-gray-500">({{ number_format(($seller_engagement['moderately_active'] / $total_sellers) * 100, 1) }}%)</span>
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Average Products per Seller</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($avg_products_per_seller, 1) }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Average Order Value</span>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Average Order Value</div>
+                                <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                                    {{ $avg_order_value }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance Metrics</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Response Rate</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['response_rate'], 1) }}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Order Fulfillment Rate</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['fulfillment_rate'], 1) }}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Customer Satisfaction</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['satisfaction_rate'], 1) }}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">On-time Delivery Rate</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['ontime_delivery_rate'], 1) }}%</span>
                             </div>
                         </div>
                     </div>
@@ -215,19 +247,11 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-900 dark:text-white">
-                                                {{ number_format($seller->products_sold + $seller->bundles_sold) }} total
-                                            </div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                {{ number_format($seller->products_sold) }} products • {{ number_format($seller->bundles_sold) }} bundles
+                                                {{ number_format($seller->sales) }} total
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">₹{{ number_format($seller->total_revenue) }}</div>
-                                            @if(($seller->products_sold + $seller->bundles_sold) > 0)
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    Avg: ₹{{ number_format($seller->avg_revenue_per_sale) }}/sale
-                                                </div>
-                                            @endif
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            {{ $seller->formatted_revenue }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">

@@ -159,15 +159,21 @@
 
                         <!-- Purpose -->
                         <div>
-                            <x-input-label for="purpose" value="Purpose" />
-                            <textarea id="purpose" name="purpose" rows="3" 
-                                      class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm" 
-                                      required>{{ old('purpose') }}</textarea>
-                            <p class="mt-1 text-sm text-gray-500">Please explain why you need this item and how it will help your education.</p>
+                            <x-input-label for="purpose" value="Purpose of Request" />
+                            <select id="purpose" name="purpose" class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm" required>
+                                <option value="">Select a purpose</option>
+                                <option value="educational" {{ old('purpose') == 'educational' ? 'selected' : '' }}>Educational</option>
+                                <option value="personal" {{ old('purpose') == 'personal' ? 'selected' : '' }}>Personal</option>
+                                <option value="community" {{ old('purpose') == 'community' ? 'selected' : '' }}>Community</option>
+                                <option value="tuition" {{ old('purpose') == 'tuition' ? 'selected' : '' }}>Tuition</option>
+                                <option value="books" {{ old('purpose') == 'books' ? 'selected' : '' }}>Books</option>
+                                <option value="equipment" {{ old('purpose') == 'equipment' ? 'selected' : '' }}>Equipment</option>
+                                <option value="transport" {{ old('purpose') == 'transport' ? 'selected' : '' }}>Transport</option>
+                                <option value="other" {{ old('purpose') == 'other' ? 'selected' : '' }}>Other</option>
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">Please select the purpose for requesting this donation.</p>
                             <x-input-error :messages="$errors->get('purpose')" class="mt-2" />
                         </div>
-
-
 
                         <!-- Contact Number -->
                         <div>

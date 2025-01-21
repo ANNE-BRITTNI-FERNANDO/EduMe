@@ -71,7 +71,9 @@ class AdminDonationController extends Controller
                 ->get();
             $debug['rejected_count'] = $rejectedDonations->count();
 
-            $locations = DonationItem::distinct()
+            // Get locations from users table instead of donation_items
+            $locations = DB::table('users')
+                ->distinct()
                 ->whereNotNull('location')
                 ->pluck('location')
                 ->sort()
@@ -100,23 +102,35 @@ class AdminDonationController extends Controller
     public function approveDonation(DonationItem $donation)
     {
         try {
+            \Log::info('Approving donation', ['donation_id' => $donation->id]);
+            
             $donation->status = self::STATUS_APPROVED;
-            $donation->reviewedByUser = auth()->id();
+            $donation->reviewed_by = auth()->id();  
             $donation->verified_at = now();
+            
             // Set the available quantity to the total quantity when approving
             if (!isset($donation->available_quantity)) {
                 $donation->available_quantity = $donation->quantity;
             }
+            
             $donation->save();
     
+            \Log::info('Donation approved successfully', ['donation_id' => $donation->id]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Donation approved successfully'
             ]);
         } catch (\Exception $e) {
+            \Log::error('Error approving donation', [
+                'donation_id' => $donation->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Error approving donation'
+                'message' => 'Error approving donation: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -124,19 +138,29 @@ class AdminDonationController extends Controller
     public function rejectDonation(DonationItem $donation)
     {
         try {
+            \Log::info('Rejecting donation', ['donation_id' => $donation->id]);
+            
             $donation->status = self::STATUS_REJECTED;
-            $donation->reviewedByUser = auth()->id();
+            $donation->reviewed_by = auth()->id();  
             $donation->verified_at = now();
             $donation->save();
     
+            \Log::info('Donation rejected successfully', ['donation_id' => $donation->id]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Donation rejected successfully'
             ]);
         } catch (\Exception $e) {
+            \Log::error('Error rejecting donation', [
+                'donation_id' => $donation->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Error rejecting donation'
+                'message' => 'Error rejecting donation: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -171,18 +195,17 @@ class AdminDonationController extends Controller
 
     public function removeDonation(DonationItem $donation)
     {
-        if ($donation->status !== self::STATUS_APPROVED || !$donation->is_available) {
+        if ($donation->status !== self::STATUS_APPROVED || $donation->available_quantity <= 0) {
             return back()->with('error', 'This donation cannot be removed from the available list.');
         }
 
         try {
             DB::beginTransaction();
 
-            // Update donation to be unavailable
+            // Update donation to be unavailable by setting quantity to 0
             $donation->update([
-                'is_available' => false,
-                'removed_at' => now(),
-                'removed_by' => Auth::id()
+                'available_quantity' => 0,
+                'status' => self::STATUS_COMPLETED
             ]);
 
             DB::commit();

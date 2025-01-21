@@ -52,108 +52,149 @@
                 </div>
             </div>
 
-                    <!-- Revenue Trend Table -->
-                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 mb-6">
-                        <h2 class="text-xl font-semibold mb-4">Revenue Trend</h2>
-                        @if($revenue_trend->isNotEmpty())
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Date
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Revenue
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($revenue_trend as $item)
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    LKR {{ number_format((float)$item['revenue'], 2) }}
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                    <tfoot class="bg-gray-50">
-                                        <tr>
-                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Total
-                                            </td>
-                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
-                                                LKR {{ number_format($revenue_trend->sum('revenue'), 2) }}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        @else
-                            <div class="text-gray-500 text-center py-4">
-                                No revenue data available for the selected period
-                            </div>
-                        @endif
+                                        <!-- Revenue Trend Chart -->
+                                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6 mb-6">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Revenue Trends</h2>
+                        <div class="h-80">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
                     </div>
 
-                    <!-- Location Sales Table -->
-                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h2 class="text-xl font-semibold mb-4">Sales by Location</h2>
-                        @if($location_sales->isNotEmpty())
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Location
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Orders
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Total Revenue
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        @foreach($location_sales as $item)
-                                            <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {{ $item['location'] }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {{ number_format($item['count']) }}
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    LKR {{ number_format((float)$item['total'], 2) }}
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                    <tfoot class="bg-gray-50">
-                                        <tr>
-                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Total
-                                            </td>
-                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
-                                                {{ number_format($location_sales->sum('count')) }}
-                                            </td>
-                                            <td class="px-6 py-3 text-left text-xs font-medium text-gray-900">
-                                                LKR {{ number_format($location_sales->sum('total'), 2) }}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
+                    <!-- Sales by Location Chart -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg p-6 mb-6">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Sales by Location</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="h-80">
+                                <canvas id="locationPieChart"></canvas>
                             </div>
-                        @else
-                            <div class="text-gray-500 text-center py-4">
-                                No location data available for the selected period
+                            <div class="h-80">
+                                <canvas id="locationBarChart"></canvas>
                             </div>
-                        @endif
+                        </div>
                     </div>
+
+                    <!-- Revenue Trend Table -->
+
+    @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Revenue Trend Chart
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($revenue_trend->pluck('date')->map(function($date) { 
+                    return \Carbon\Carbon::parse($date)->format('M d'); 
+                })) !!},
+                datasets: [{
+                    label: 'Revenue (LKR)',
+                    data: {!! json_encode($revenue_trend->pluck('revenue')) !!},
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'LKR ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Location Sales Charts
+        const locationData = {!! json_encode($location_sales->map(function($item) {
+            return [
+                'location' => $item['location'],
+                'revenue' => $item['total'],
+                'orders' => $item['count']
+            ];
+        })) !!};
+
+        // Pie Chart for Revenue Distribution
+        const pieCtx = document.getElementById('locationPieChart').getContext('2d');
+        new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: locationData.map(item => item.location),
+                datasets: [{
+                    data: locationData.map(item => item.revenue),
+                    backgroundColor: [
+                        '#4F46E5', '#10B981', '#F59E0B', '#EF4444',
+                        '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Revenue Distribution by Location'
+                    }
+                }
+            }
+        });
+
+        // Bar Chart for Orders by Location
+        const barCtx = document.getElementById('locationBarChart').getContext('2d');
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: locationData.map(item => item.location),
+                datasets: [{
+                    label: 'Number of Orders',
+                    data: locationData.map(item => item.orders),
+                    backgroundColor: '#4F46E5',
+                    borderColor: '#4338CA',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Orders by Location'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    @endpush
 
             <!-- Recent Orders Table -->
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">

@@ -10,10 +10,11 @@ use App\Models\Product;
 use App\Models\Bundle;
 use App\Models\Visit;
 use App\Models\Cart;
+use App\Models\Message;
 use Carbon\Carbon;
+use App\Models\SellerRating as Rating;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\SellerRating;
 
 class ReportsController extends Controller
 {
@@ -170,12 +171,6 @@ class ReportsController extends Controller
     public function sales(Request $request)
     {
         [$start_date, $end_date] = $this->getDateRange($request);
-
-        // Debug log the date range
-        \Log::info('Date Range', [
-            'start_date' => $start_date,
-            'end_date' => $end_date
-        ]);
 
         try {
             // Get revenue trend data combining products and bundles
@@ -695,6 +690,72 @@ class ReportsController extends Controller
     {
         [$start_date, $end_date] = $this->getDateRange($request);
 
+        // Calculate active users more comprehensively
+        $active_users = User::where(function($query) use ($start_date, $end_date) {
+            // Users who made a purchase
+            $query->whereHas('buyerOrders', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })
+            // Users who listed products
+            ->orWhereHas('products', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })
+            // Users who created bundles
+            ->orWhereHas('bundles', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })
+            // Users who added items to cart
+            ->orWhereHas('cart', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })
+            // Users who rated sellers
+            ->orWhereHas('ratings', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            });
+        })->count();
+
+        // Get previous period metrics for comparison
+        $days_diff = $end_date->diffInDays($start_date);
+        $previous_start = $start_date->copy()->subDays($days_diff);
+        $previous_end = $start_date->copy()->subDay();
+
+        $previous_active_users = User::where(function($query) use ($previous_start, $previous_end) {
+            $query->whereHas('buyerOrders', function($q) use ($previous_start, $previous_end) {
+                $q->whereBetween('created_at', [$previous_start, $previous_end]);
+            })
+            ->orWhereHas('products', function($q) use ($previous_start, $previous_end) {
+                $q->whereBetween('created_at', [$previous_start, $previous_end]);
+            })
+            ->orWhereHas('bundles', function($q) use ($previous_start, $previous_end) {
+                $q->whereBetween('created_at', [$previous_start, $previous_end]);
+            })
+            ->orWhereHas('cart', function($q) use ($previous_start, $previous_end) {
+                $q->whereBetween('created_at', [$previous_start, $previous_end]);
+            })
+            ->orWhereHas('ratings', function($q) use ($previous_start, $previous_end) {
+                $q->whereBetween('created_at', [$previous_start, $previous_end]);
+            });
+        })->count();
+
+        $active_users_growth = $previous_active_users > 0 ? 
+            (($active_users - $previous_active_users) / $previous_active_users) * 100 : 0;
+
+        // Get detailed breakdown of user activity
+        $activity_breakdown = [
+            'buyers' => User::whereHas('buyerOrders', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })->count(),
+            'sellers' => User::whereHas('products', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })->count(),
+            'cart_users' => User::whereHas('cart', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })->count(),
+            'raters' => User::whereHas('ratings', function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date]);
+            })->count()
+        ];
+
         $total_users = User::count();
         $new_users = User::whereBetween('created_at', [$start_date, $end_date])->count();
         
@@ -706,21 +767,6 @@ class ReportsController extends Controller
         $previous_new_users = User::whereBetween('created_at', [$previous_start, $previous_end])->count();
         $user_growth = $previous_new_users > 0 ? (($new_users - $previous_new_users) / $previous_new_users) * 100 : 0;
 
-        // Active users (users who have placed orders)
-        $active_users = Product::where('is_sold', true)
-            ->whereBetween('updated_at', [$start_date, $end_date])
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $previous_active_users = Product::where('is_sold', true)
-            ->whereBetween('updated_at', [$previous_start, $previous_end])
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $active_users_growth = $previous_active_users > 0 ? 
-            (($active_users - $previous_active_users) / $previous_active_users) * 100 : 0;
-
-        // Daily new users
         $daily_new_users = User::select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('COUNT(*) as count'))
@@ -729,9 +775,8 @@ class ReportsController extends Controller
             ->orderBy('date')
             ->get();
 
-        // Get user engagement metrics
         $total_active = User::has('products')->count();
-        $period_active = Product::whereBetween('updated_at', [$start_date, $end_date])
+        $period_active = Product::whereBetween('created_at', [$start_date, $end_date])
             ->select('user_id')
             ->distinct()
             ->count();
@@ -749,7 +794,8 @@ class ReportsController extends Controller
             'daily_new_users',
             'engagement_rate',
             'total_active',
-            'period_active'
+            'period_active',
+            'activity_breakdown'
         ));
     }
 
@@ -878,181 +924,269 @@ class ReportsController extends Controller
 
     public function sellers(Request $request)
     {
-        [$start_date, $end_date] = $this->getDateRange($request);
+        [$startDate, $endDate] = $this->getDateRange($request);
+        $dateRange = [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'days' => $endDate->diffInDays($startDate)
+        ];
 
-        // Total sellers and new sellers
-        $total_sellers = User::where('role', 'seller')->count();
-        $new_sellers = User::where('role', 'seller')
-            ->whereBetween('created_at', [$start_date, $end_date])
+        // Get daily new sellers data for the chart based on first product upload
+        $daily_new_sellers = DB::table('products')
+            ->select(DB::raw('DATE(MIN(created_at)) as date'), DB::raw('COUNT(DISTINCT user_id) as count'))
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy('date')
+            ->get();
+
+        // Basic seller metrics - now based on products table
+        $total_sellers = DB::table('products')
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $active_sellers = DB::table('products')
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->distinct('user_id')
+            ->count('user_id');
+
+        // Calculate average products per seller
+        $total_products = Product::where('is_approved', true)
+            ->where('is_rejected', false)
             ->count();
-        
-        // Get previous period for comparison
-        $days_diff = $end_date->diffInDays($start_date);
-        $previous_start = $start_date->copy()->subDays($days_diff);
-        $previous_end = $start_date->copy()->subDay();
-        
-        $previous_new_sellers = User::where('role', 'seller')
-            ->whereBetween('created_at', [$previous_start, $previous_end])
+        $avg_products_per_seller = $total_sellers > 0 ? $total_products / $total_sellers : 0;
+
+        // New sellers in period - based on first product upload
+        $new_sellers = DB::table('products')
+            ->select('user_id')
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy('user_id')
+            ->havingRaw('MIN(created_at) >= ?', [$startDate])
+            ->count();
+
+        // Calculate seller growth based on first product upload
+        $previous_period_start = Carbon::parse($startDate)->subDays($dateRange['days']);
+        $previous_new_sellers = DB::table('products')
+            ->select('user_id')
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
+            ->whereBetween('created_at', [$previous_period_start, $startDate])
+            ->groupBy('user_id')
+            ->havingRaw('MIN(created_at) >= ?', [$previous_period_start])
             ->count();
         
         $sellers_growth = $previous_new_sellers > 0 ? 
             (($new_sellers - $previous_new_sellers) / $previous_new_sellers) * 100 : 0;
 
-        // Active sellers with revenue details
-        $active_sellers = User::where('role', 'seller')
-            ->whereHas('products', function($query) use ($start_date, $end_date) {
+        // Get top performing sellers
+        $top_sellers = User::where('is_seller', true)
+            ->withCount(['products as sales' => function($query) use ($startDate, $endDate) {
                 $query->where('is_sold', true)
-                    ->whereBetween('updated_at', [$start_date, $end_date]);
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            }])
+            ->withSum(['products as revenue' => function($query) use ($startDate, $endDate) {
+                $query->where('is_sold', true)
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            }], 'price')
+            ->withAvg(['ratings as rating' => function($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }], 'rating')
+            ->withCount(['ratings as total_ratings' => function($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }])
+            ->having('sales', '>', 0)
+            ->orderByDesc('revenue')
+            ->take(10)
+            ->get();
+
+        // Get recent reviews
+        $recent_reviews = Rating::with(['user', 'seller'])
+            ->whereHas('seller', function($query) {
+                $query->where('is_seller', true);
             })
-            ->orWhereHas('bundles', function($query) use ($start_date, $end_date) {
-                $query->where('is_sold', true)
-                    ->whereBetween('updated_at', [$start_date, $end_date]);
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->latest()
+            ->take(5)
+            ->get();
+
+        // Seller engagement metrics
+        $highly_active_threshold = 5; // sellers with more than 5 products
+        $moderately_active_threshold = 2; // sellers with 2-5 products
+
+        $seller_engagement = [
+            'highly_active' => User::where('is_seller', true)
+                ->withCount(['products' => function($query) use ($startDate, $endDate) {
+                    $query->whereBetween('created_at', [$startDate, $endDate]);
+                }])
+                ->having('products_count', '>=', $highly_active_threshold)
+                ->count(),
+            'moderately_active' => User::where('is_seller', true)
+                ->withCount(['products' => function($query) use ($startDate, $endDate) {
+                    $query->whereBetween('created_at', [$startDate, $endDate]);
+                }])
+                ->having('products_count', '>=', $moderately_active_threshold)
+                ->having('products_count', '<', $highly_active_threshold)
+                ->count()
+        ];
+
+        // Calculate average seller rating and total reviews
+        $ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('seller', function($query) {
+                $query->where('is_seller', true);
+            })
+            ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as total_reviews')
+            ->first();
+
+        $avg_seller_rating = $ratings->avg_rating ?? 0;
+        $total_seller_reviews = $ratings->total_reviews ?? 0;
+
+        // Calculate rating distribution
+        $total_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('seller', function($query) {
+                $query->where('is_seller', true);
             })
             ->count();
 
-        // Get seller ratings data
-        $average_rating = SellerRating::avg('rating') ?? 0;
-        
-        // Get detailed rating distribution for all sellers
-        $rating_distribution = SellerRating::select('rating', DB::raw('COUNT(*) as count'))
+        $rating_distribution = Rating::whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('seller', function($query) {
+                $query->where('is_seller', true);
+            })
+            ->selectRaw('rating, COUNT(*) as count')
             ->groupBy('rating')
-            ->orderBy('rating')
-            ->get();
-        
-        // Calculate total reviews for percentage
-        $total_reviews = $rating_distribution->sum('count');
-        $rating_distribution = $rating_distribution->map(function($item) use ($total_reviews) {
-            $item->percentage = $total_reviews > 0 ? ($item->count / $total_reviews) * 100 : 0;
-            return $item;
-        });
-
-        // Top rated sellers with detailed metrics
-        $top_rated_sellers = User::where('role', 'seller')
-            ->withAvg('ratings as rating_avg', 'rating')
-            ->withCount('ratings')
-            ->withCount(['products as total_products' => function($query) {
-                $query->where('is_sold', true);
-            }])
-            ->withCount(['bundles as total_bundles' => function($query) {
-                $query->where('is_sold', true);
-            }])
-            ->withSum(['products as total_revenue' => function($query) use ($start_date, $end_date) {
-                $query->where('is_sold', true)
-                    ->whereBetween('updated_at', [$start_date, $end_date]);
-            }], 'price')
-            ->having('rating_avg', '>', 0)
-            ->orderByDesc('rating_avg')
-            ->take(10)
+            ->orderBy('rating', 'desc')
             ->get()
-            ->map(function($seller) {
-                // Calculate rating distribution for each seller
-                $seller->rating_distribution = SellerRating::where('seller_id', $seller->id)
-                    ->select('rating', DB::raw('COUNT(*) as count'))
-                    ->groupBy('rating')
-                    ->orderBy('rating')
-                    ->get()
-                    ->pluck('count', 'rating')
-                    ->toArray();
-                
-                // Calculate review sentiment
-                $seller->positive_reviews = SellerRating::where('seller_id', $seller->id)
-                    ->where('rating', '>=', 4)
-                    ->count();
-                $seller->neutral_reviews = SellerRating::where('seller_id', $seller->id)
-                    ->where('rating', '=', 3)
-                    ->count();
-                $seller->negative_reviews = SellerRating::where('seller_id', $seller->id)
-                    ->where('rating', '<=', 2)
-                    ->count();
-                
-                return $seller;
+            ->map(function($item) use ($total_ratings) {
+                $item->percentage = $total_ratings > 0 ? ($item->count / $total_ratings) * 100 : 0;
+                return $item;
             });
 
-        // Recent reviews with seller performance context
-        $recent_reviews = SellerRating::with(['seller', 'buyer'])
-            ->select('seller_ratings.*')
-            ->addSelect(DB::raw('(SELECT AVG(rating) FROM seller_ratings sr2 WHERE sr2.seller_id = seller_ratings.seller_id) as seller_avg_rating'))
-            ->whereBetween('seller_ratings.created_at', [$start_date, $end_date])
-            ->latest()
-            ->take(10)
-            ->get();
+        // Calculate average revenue per seller
+        $avg_revenue_per_seller = $this->formatCurrency(
+            DB::table('order_items')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->where('orders.created_at', '>=', $startDate)
+                ->where('orders.created_at', '<=', $endDate)
+                ->whereExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('users')
+                        ->whereColumn('order_items.seller_id', 'users.id')
+                        ->where('users.is_seller', true);
+                })
+                ->selectRaw('ROUND(AVG(order_items.price * order_items.quantity), 2) as avg_revenue')
+                ->value('avg_revenue') ?? 0
+        );
 
-        // Top performing sellers by revenue with detailed metrics
-        $top_sellers = User::where('role', 'seller')
-            ->withSum(['products as product_revenue' => function($query) {
-                $query->where('is_sold', true);
-            }], 'price')
-            ->withSum(['bundles as bundle_revenue' => function($query) {
-                $query->where('is_sold', true);
-            }], 'price')
-            ->withCount(['products as products_sold' => function($query) {
-                $query->where('is_sold', true);
-            }])
-            ->withCount(['bundles as bundles_sold' => function($query) {
-                $query->where('is_sold', true);
-            }])
-            ->withAvg('ratings as rating', 'rating')
-            ->withCount('ratings as total_ratings')
-            ->orderByRaw('COALESCE(product_revenue, 0) + COALESCE(bundle_revenue, 0) DESC')
-            ->take(10)
-            ->get()
-            ->map(function($seller) {
-                $seller->total_revenue = ($seller->product_revenue ?? 0) + ($seller->bundle_revenue ?? 0);
-                $seller->avg_revenue_per_sale = $seller->products_sold + $seller->bundles_sold > 0 
-                    ? $seller->total_revenue / ($seller->products_sold + $seller->bundles_sold)
-                    : 0;
-                return $seller;
-            });
+        // Calculate average order value
+        $avg_order_value = $this->formatCurrency(
+            DB::table('order_items')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->where('orders.created_at', '>=', $startDate)
+                ->where('orders.created_at', '<=', $endDate)
+                ->whereExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('users')
+                        ->whereColumn('order_items.seller_id', 'users.id')
+                        ->where('users.is_seller', true);
+                })
+                ->selectRaw('ROUND(AVG(order_items.price * order_items.quantity + order_items.delivery_fee_share), 2) as avg_value')
+                ->value('avg_value') ?? 0
+        );
 
-        // Daily new sellers trend
-        $daily_new_sellers = User::where('role', 'seller')
-            ->select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('COUNT(*) as count')
-            )
-            ->whereBetween('created_at', [$start_date, $end_date])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        // Calculate seller engagement metrics
-        $seller_engagement = [
-            'highly_active' => User::where('role', 'seller')
-                ->withCount(['products as active_products' => function($query) {
-                    $query->where('is_sold', false);
-                }])
-                ->having('active_products', '>=', 5)
-                ->count(),
-            'moderately_active' => User::where('role', 'seller')
-                ->withCount(['products as active_products' => function($query) {
-                    $query->where('is_sold', false);
-                }])
-                ->having('active_products', '>=', 1)
-                ->having('active_products', '<', 5)
-                ->count(),
-            'inactive' => User::where('role', 'seller')
-                ->withCount(['products as active_products' => function($query) {
-                    $query->where('is_sold', false);
-                }])
-                ->having('active_products', '=', 0)
-                ->count(),
+        // Performance metrics
+        $seller_metrics = [
+            'response_rate' => $this->calculateResponseRate($startDate, $endDate),
+            'fulfillment_rate' => $this->calculateFulfillmentRate($startDate, $endDate),
+            'satisfaction_rate' => $this->calculateSatisfactionRate($startDate, $endDate),
+            'ontime_delivery_rate' => $this->calculateOnTimeDeliveryRate($startDate, $endDate)
         ];
 
+        // Get top sellers with formatted revenue
+        $top_sellers = $top_sellers->map(function($seller) {
+            $seller->formatted_revenue = $this->formatCurrency($seller->revenue);
+            return $seller;
+        });
+
         return view('admin.reports.sellers', compact(
-            'start_date',
-            'end_date',
             'total_sellers',
+            'active_sellers',
             'new_sellers',
             'sellers_growth',
-            'active_sellers',
-            'average_rating',
+            'seller_engagement',
+            'avg_seller_rating',
+            'total_seller_reviews',
+            'avg_revenue_per_seller',
+            'avg_order_value',
+            'seller_metrics',
+            'dateRange',
+            'avg_products_per_seller',
             'rating_distribution',
-            'top_rated_sellers',
-            'recent_reviews',
             'top_sellers',
-            'daily_new_sellers',
-            'seller_engagement'
-        ));
+            'recent_reviews',
+            'daily_new_sellers'
+        ))->with('days_in_period', $dateRange['days']);
+    }
+
+    private function calculateResponseRate($startDate, $endDate)
+    {
+        // Calculate response rate based on messages responded within 24 hours
+        $total_messages = Message::join('conversations', 'messages.conversation_id', '=', 'conversations.id')
+            ->where('conversations.seller_id', '!=', 'messages.sender_id')
+            ->whereBetween('messages.created_at', [$startDate, $endDate])
+            ->count();
+
+        $responded_messages = Message::join('conversations', 'messages.conversation_id', '=', 'conversations.id')
+            ->where('conversations.seller_id', '=', 'messages.sender_id')
+            ->whereRaw('TIMESTAMPDIFF(HOUR, messages.created_at, messages.read_at) <= 24')
+            ->whereBetween('messages.created_at', [$startDate, $endDate])
+            ->count();
+
+        return $total_messages > 0 ? ($responded_messages / $total_messages) * 100 : 0;
+    }
+
+    private function calculateFulfillmentRate($startDate, $endDate)
+    {
+        $total_orders = Order::whereBetween('created_at', [$startDate, $endDate])->count();
+        $fulfilled_orders = Order::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'completed')
+            ->count();
+
+        return $total_orders > 0 ? ($fulfilled_orders / $total_orders) * 100 : 0;
+    }
+
+    private function calculateSatisfactionRate($startDate, $endDate)
+    {
+        $total_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])->count();
+        $positive_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+            ->where('rating', '>=', 4)
+            ->count();
+
+        return $total_ratings > 0 ? ($positive_ratings / $total_ratings) * 100 : 0;
+    }
+
+    private function calculateOnTimeDeliveryRate($startDate, $endDate)
+    {
+        $total_deliveries = Order::whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('delivered_at')
+            ->count();
+        
+        $ontime_deliveries = Order::whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('delivered_at')
+            ->whereRaw('delivered_at <= DATE_ADD(created_at, INTERVAL 3 DAY)') // Assuming 3-day delivery window
+            ->count();
+
+        return $total_deliveries > 0 ? ($ontime_deliveries / $total_deliveries) * 100 : 0;
+    }
+
+    private function formatCurrency($amount)
+    {
+        return 'LKR ' . number_format($amount, 2);
     }
 
     public function downloadReport(Request $request, $type)
@@ -1134,15 +1268,46 @@ class ReportsController extends Controller
                 $previous_new_users = User::whereBetween('created_at', [$previous_start, $previous_end])->count();
                 $user_growth = $previous_new_users > 0 ? (($new_users - $previous_new_users) / $previous_new_users) * 100 : 0;
 
-                $active_users = Product::where('is_sold', true)
-                    ->whereBetween('created_at', [$start_date, $end_date])
-                    ->distinct('user_id')
-                    ->count('user_id');
+                $active_users = User::where(function($query) use ($start_date, $end_date) {
+                    // Users who made a purchase
+                    $query->whereHas('buyerOrders', function($q) use ($start_date, $end_date) {
+                        $q->whereBetween('created_at', [$start_date, $end_date]);
+                    })
+                    // Users who listed products
+                    ->orWhereHas('products', function($q) use ($start_date, $end_date) {
+                        $q->whereBetween('created_at', [$start_date, $end_date]);
+                    })
+                    // Users who created bundles
+                    ->orWhereHas('bundles', function($q) use ($start_date, $end_date) {
+                        $q->whereBetween('created_at', [$start_date, $end_date]);
+                    })
+                    // Users who added items to cart
+                    ->orWhereHas('cart', function($q) use ($start_date, $end_date) {
+                        $q->whereBetween('created_at', [$start_date, $end_date]);
+                    })
+                    // Users who rated sellers
+                    ->orWhereHas('ratings', function($q) use ($start_date, $end_date) {
+                        $q->whereBetween('created_at', [$start_date, $end_date]);
+                    });
+                })->count();
 
-                $previous_active_users = Product::where('is_sold', true)
-                    ->whereBetween('created_at', [$previous_start, $previous_end])
-                    ->distinct('user_id')
-                    ->count('user_id');
+                $previous_active_users = User::where(function($query) use ($previous_start, $previous_end) {
+                    $query->whereHas('buyerOrders', function($q) use ($previous_start, $previous_end) {
+                        $q->whereBetween('created_at', [$previous_start, $previous_end]);
+                    })
+                    ->orWhereHas('products', function($q) use ($previous_start, $previous_end) {
+                        $q->whereBetween('created_at', [$previous_start, $previous_end]);
+                    })
+                    ->orWhereHas('bundles', function($q) use ($previous_start, $previous_end) {
+                        $q->whereBetween('created_at', [$previous_start, $previous_end]);
+                    })
+                    ->orWhereHas('cart', function($q) use ($previous_start, $previous_end) {
+                        $q->whereBetween('created_at', [$previous_start, $previous_end]);
+                    })
+                    ->orWhereHas('ratings', function($q) use ($previous_start, $previous_end) {
+                        $q->whereBetween('created_at', [$previous_start, $previous_end]);
+                    });
+                })->count();
 
                 $active_users_growth = $previous_active_users > 0 ? 
                     (($active_users - $previous_active_users) / $previous_active_users) * 100 : 0;
@@ -1199,6 +1364,7 @@ class ReportsController extends Controller
                 $sold_products = Product::where('is_sold', true)
                     ->whereBetween('created_at', [$start_date, $end_date])
                     ->count();
+
                 $sold_bundles = Bundle::where('is_sold', true)
                     ->whereBetween('created_at', [$start_date, $end_date])
                     ->count();
@@ -1206,6 +1372,7 @@ class ReportsController extends Controller
                 $total_product_revenue = Product::where('is_sold', true)
                     ->whereBetween('created_at', [$start_date, $end_date])
                     ->sum('price');
+
                 $total_bundle_revenue = Bundle::where('is_sold', true)
                     ->whereBetween('created_at', [$start_date, $end_date])
                     ->sum('price');
@@ -1270,8 +1437,8 @@ class ReportsController extends Controller
 
             case 'sellers':
                 // Get total and new sellers
-                $total_sellers = User::where('role', 'seller')->count();
-                $new_sellers = User::where('role', 'seller')
+                $total_sellers = User::where('is_seller', true)->count();
+                $new_sellers = User::where('is_seller', true)
                     ->whereBetween('created_at', [$start_date, $end_date])
                     ->count();
 
@@ -1280,7 +1447,7 @@ class ReportsController extends Controller
                 $previous_start = $start_date->copy()->subDays($days_diff);
                 $previous_end = $start_date->copy()->subDay();
                 
-                $previous_new_sellers = User::where('role', 'seller')
+                $previous_new_sellers = User::where('is_seller', true)
                     ->whereBetween('created_at', [$previous_start, $previous_end])
                     ->count();
                 
@@ -1288,7 +1455,7 @@ class ReportsController extends Controller
                     (($new_sellers - $previous_new_sellers) / $previous_new_sellers) * 100 : 0;
 
                 // Get active sellers (those with sold items)
-                $active_sellers = User::where('role', 'seller')
+                $active_sellers = User::where('is_seller', true)
                     ->whereHas('products', function($query) use ($start_date, $end_date) {
                         $query->where('is_sold', true)
                             ->whereBetween('updated_at', [$start_date, $end_date]);
@@ -1309,7 +1476,7 @@ class ReportsController extends Controller
                     ->get();
 
                 // Get top sellers
-                $top_sellers = User::where('role', 'seller')
+                $top_sellers = User::where('is_seller', true)
                     ->withCount(['products as products_sold' => function($query) {
                         $query->where('is_sold', true);
                     }])
@@ -1329,7 +1496,7 @@ class ReportsController extends Controller
                     ->get();
 
                 // Get daily new sellers trend
-                $daily_new_sellers = User::where('role', 'seller')
+                $daily_new_sellers = User::where('is_seller', true)
                     ->select(
                         DB::raw('DATE(created_at) as date'),
                         DB::raw('COUNT(*) as count')
@@ -1340,7 +1507,7 @@ class ReportsController extends Controller
                     ->get();
 
                 // Get recent sellers
-                $recent_sellers = User::where('role', 'seller')
+                $recent_sellers = User::where('is_seller', true)
                     ->withCount('products')
                     ->withCount('bundles')
                     ->whereBetween('created_at', [$start_date, $end_date])
