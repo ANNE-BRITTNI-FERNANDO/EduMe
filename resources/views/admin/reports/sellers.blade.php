@@ -24,7 +24,7 @@
                                         </div>
                                     </dd>
                                     <dd class="mt-1 text-sm text-gray-500">
-                                        {{ number_format(($active_sellers / $total_sellers) * 100, 1) }}% activity rate
+                                        {{ $total_sellers > 0 ? number_format(($active_sellers / $total_sellers) * 100, 1) : 0 }}% activity rate
                                     </dd>
                                 </dl>
                             </div>
@@ -132,14 +132,14 @@
                                 <span class="text-sm text-gray-500">Highly Active Sellers</span>
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">
                                     {{ number_format($seller_engagement['highly_active']) }}
-                                    <span class="text-sm text-gray-500">({{ number_format(($seller_engagement['highly_active'] / $total_sellers) * 100, 1) }}%)</span>
+                                    <span class="text-sm text-gray-500">({{ $total_sellers > 0 ? number_format(($seller_engagement['highly_active'] / $total_sellers) * 100, 1) : 0 }}%)</span>
                                 </span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm text-gray-500">Moderately Active Sellers</span>
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">
                                     {{ number_format($seller_engagement['moderately_active']) }}
-                                    <span class="text-sm text-gray-500">({{ number_format(($seller_engagement['moderately_active'] / $total_sellers) * 100, 1) }}%)</span>
+                                    <span class="text-sm text-gray-500">({{ $total_sellers > 0 ? number_format(($seller_engagement['moderately_active'] / $total_sellers) * 100, 1) : 0 }}%)</span>
                                 </span>
                             </div>
                             <div class="flex justify-between items-center">
@@ -173,10 +173,6 @@
                             <div class="flex justify-between items-center">
                                 <span class="text-sm text-gray-500">Customer Satisfaction</span>
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['satisfaction_rate'], 1) }}%</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-500">On-time Delivery Rate</span>
-                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ number_format($seller_metrics['ontime_delivery_rate'], 1) }}%</span>
                             </div>
                         </div>
                     </div>

@@ -365,8 +365,9 @@ class ProductController extends Controller
         }
 
         // Apply category filter
-        if ($request->filled('category')) {
-            $query->where('category', $request->category);
+        $category = $request->get('category');
+        if (!empty($category)) {
+            $query->where('category', $category);
         }
 
         // Apply location filter
@@ -384,9 +385,25 @@ class ProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        // Apply date sorting
-        if ($request->filled('sort_date')) {
-            $query->orderBy('created_at', $request->sort_date);
+        // Apply sorting
+        if ($request->filled('sort')) {
+            switch ($request->sort) {
+                case 'price_low':
+                    $query->orderBy('price', 'asc');
+                    break;
+                case 'price_high':
+                    $query->orderBy('price', 'desc');
+                    break;
+                case 'oldest':
+                    $query->orderBy('created_at', 'asc');
+                    break;
+                default: // newest
+                    $query->orderBy('created_at', 'desc');
+                    break;
+            }
+        } else {
+            // Default sort by newest
+            $query->orderBy('created_at', 'desc');
         }
 
         // Sort by location if buyer location is available and no specific location is selected

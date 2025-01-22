@@ -107,16 +107,19 @@
                                 id="budget_amount"
                                 class="mt-1 block w-full rounded-md shadow-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
                                 value="{{ old('budget_amount', $budgetTracking ? $budgetTracking->total_amount : '') }}"
+                                min="100"
                                 required
                             >
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Minimum amount: LKR 100</p>
                         </div>
                         <div>
                             <label for="cycle_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cycle Type</label>
                             <select name="cycle_type" id="cycle_type" required
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm">
-                                <option value="weekly" {{ old('cycle_type', $budgetTracking ? $budgetTracking->cycle_type : '') == 'weekly' ? 'selected' : '' }}>Weekly</option>
-                                <option value="monthly" {{ old('cycle_type', $budgetTracking ? $budgetTracking->cycle_type : '') == 'monthly' ? 'selected' : '' }}>Monthly</option>
+                                <option value="monthly" {{ old('cycle_type', $budgetTracking ? $budgetTracking->cycle_type : '') === 'monthly' ? 'selected' : '' }}>Monthly</option>
+                                <option value="yearly" {{ old('cycle_type', $budgetTracking ? $budgetTracking->cycle_type : '') === 'yearly' ? 'selected' : '' }}>Yearly</option>
                             </select>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose between monthly or yearly budget cycles</p>
                         </div>
                         <button type="submit" 
                             class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"

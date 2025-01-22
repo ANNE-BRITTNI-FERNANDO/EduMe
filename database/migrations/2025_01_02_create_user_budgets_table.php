@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->decimal('budget_amount', 10, 2)->default(0);
-            $table->enum('cycle_type', ['weekly', 'monthly']);
+            $table->string('cycle_type', 10)->default('monthly');
             $table->timestamp('start_date')->useCurrent();
             $table->timestamps();
         });

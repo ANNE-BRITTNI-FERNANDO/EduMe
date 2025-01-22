@@ -114,23 +114,93 @@
                                             <div class="grid grid-cols-1 gap-4">
                                                 <!-- Additional Details -->
                                                 <div>
+                                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Description</h4>
+                                                    <p class="mt-1 text-gray-500 dark:text-gray-400">{{ $donation->description }}</p>
+                                                </div>
+
+                                                <!-- Donor Information -->
+                                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Donor Details</h4>
                                                     <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                                                         <div class="sm:col-span-1">
-                                                            <dt class="text-sm font-medium text-gray-500">Donated By</dt>
-                                                            <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
+                                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Donor Name</dt>
+                                                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                                {{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}
+                                                                @if($donation->is_anonymous)
+                                                                    <span class="ml-2 text-xs text-gray-500">(Anonymous donation)</span>
+                                                                @endif
+                                                            </dd>
+                                                        </div>
+
+                                                        @if(!$donation->is_anonymous)
+                                                            <div class="sm:col-span-1">
+                                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                                                                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->user->email }}</dd>
+                                                            </div>
+                                                        @endif
+
+                                                        <div class="sm:col-span-1">
+                                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Number</dt>
+                                                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                                {{ $donation->contact_number ?? 'Not provided' }}
+                                                            </dd>
                                                         </div>
 
                                                         <div class="sm:col-span-1">
-                                                            <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
-                                                            <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
+                                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Preference</dt>
+                                                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                                {{ ucfirst($donation->preferred_contact_method ?? 'Not specified') }}
+                                                            </dd>
                                                         </div>
 
                                                         <div class="sm:col-span-2">
-                                                            <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
-                                                            <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
+                                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Preferred Contact Times</dt>
+                                                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                                @if($donation->preferred_contact_times && is_array($donation->preferred_contact_times))
+                                                                    {{ implode(', ', array_map('ucfirst', $donation->preferred_contact_times)) }}
+                                                                @else
+                                                                    Not specified
+                                                                @endif
+                                                            </dd>
                                                         </div>
+
+                                                        <div class="sm:col-span-2">
+                                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Pickup Address</dt>
+                                                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                                {{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}
+                                                            </dd>
+                                                        </div>
+
+                                                        <div class="sm:col-span-2">
+
+                                                        </div>
+
+                                                        @if($donation->notes)
+                                                            <div class="sm:col-span-2">
+                                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Additional Notes</dt>
+                                                                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->notes }}</dd>
+                                                            </div>
+                                                        @endif
                                                     </dl>
                                                 </div>
+
+                                                <!-- Images -->
+                                                @if($donation->images && count($donation->images) > 0)
+                                                    <div>
+                                                        <h4 class="font-medium text-gray-900 mb-2">Images</h4>
+                                                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                                            @foreach($donation->images as $image)
+                                                                <div class="relative group">
+                                                                    <img src="{{ Storage::url($image) }}" 
+                                                                         alt="Donation image" 
+                                                                         class="w-full h-32 object-cover rounded-lg shadow-sm hover:opacity-75 transition-opacity cursor-pointer"
+                                                                         onclick="window.open('{{ Storage::url($image) }}', '_blank')"
+                                                                    >
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                @endif
                                             </div>
                                             
                                             <!-- Action Buttons -->
@@ -173,7 +243,7 @@
                         </div>
                     @endif
 
-                    <div class="space-y-2">
+                    <!-- <div class="space-y-2">
                         <p><strong>Collection Info:</strong></p>
                         <ul class="list-disc pl-5">
                             <li>Current Tab: {{ request('tab', 'pending') }}</li>
@@ -196,7 +266,7 @@
                         @else
                             <p class="text-gray-500">No pending donations found.</p>
                         @endif
-                    </div>
+                    </div> -->
                 </div>
             @endif
 
@@ -236,23 +306,92 @@
                                     <div class="grid grid-cols-1 gap-4">
                                         <!-- Additional Details -->
                                         <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Description</h4>
+                                            <p class="mt-1 text-gray-500 dark:text-gray-400">{{ $donation->description }}</p>
+                                        </div>
+
+                                        <!-- Donor Information -->
+                                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Donor Details</h4>
                                             <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                                                 <div class="sm:col-span-1">
-                                                    <dt class="text-sm font-medium text-gray-500">Donated By</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Donor Name</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}
+                                                        @if($donation->is_anonymous)
+                                                            <span class="ml-2 text-xs text-gray-500">(Anonymous donation)</span>
+                                                        @endif
+                                                    </dd>
+                                                </div>
+
+                                                @if(!$donation->is_anonymous)
+                                                    <div class="sm:col-span-1">
+                                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->user->email }}</dd>
+                                                    </div>
+                                                @endif
+
+                                                <div class="sm:col-span-1">
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Number</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->contact_number ?? 'Not provided' }}
+                                                    </dd>
                                                 </div>
 
                                                 <div class="sm:col-span-1">
-                                                    <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Preference</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ ucfirst($donation->preferred_contact_method ?? 'Not specified') }}
+                                                    </dd>
                                                 </div>
 
                                                 <div class="sm:col-span-2">
-                                                    <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Preferred Contact Times</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        @if($donation->preferred_contact_times && is_array($donation->preferred_contact_times))
+                                                            {{ implode(', ', array_map('ucfirst', $donation->preferred_contact_times)) }}
+                                                        @else
+                                                            Not specified
+                                                        @endif
+                                                    </dd>
                                                 </div>
+
+                                                <div class="sm:col-span-2">
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Pickup Address</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}
+                                                    </dd>
+                                                </div>
+
+                                                <div class="sm:col-span-2">
+                                                </div>
+
+                                                @if($donation->notes)
+                                                    <div class="sm:col-span-2">
+                                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Additional Notes</dt>
+                                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->notes }}</dd>
+                                                    </div>
+                                                @endif
                                             </dl>
                                         </div>
+
+                                        <!-- Images -->
+                                        @if($donation->images && count($donation->images) > 0)
+                                            <div>
+                                                <h4 class="font-medium text-gray-900 mb-2">Images</h4>
+                                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                                    @foreach($donation->images as $image)
+                                                        <div class="relative group">
+                                                            <img src="{{ Storage::url($image) }}" 
+                                                                 alt="Donation image" 
+                                                                 class="w-full h-32 object-cover rounded-lg shadow-sm hover:opacity-75 transition-opacity cursor-pointer"
+                                                                 onclick="window.open('{{ Storage::url($image) }}', '_blank')"
+                                                            >
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                     
                                     <!-- Action Buttons -->
@@ -313,23 +452,93 @@
                                     <div class="grid grid-cols-1 gap-4">
                                         <!-- Additional Details -->
                                         <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Description</h4>
+                                            <p class="mt-1 text-gray-500 dark:text-gray-400">{{ $donation->description }}</p>
+                                        </div>
+
+                                        <!-- Donor Information -->
+                                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Donor Details</h4>
                                             <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                                                 <div class="sm:col-span-1">
-                                                    <dt class="text-sm font-medium text-gray-500">Donated By</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Donor Name</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->is_anonymous ? 'Anonymous' : $donation->user->name }}
+                                                        @if($donation->is_anonymous)
+                                                            <span class="ml-2 text-xs text-gray-500">(Anonymous donation)</span>
+                                                        @endif
+                                                    </dd>
+                                                </div>
+
+                                                @if(!$donation->is_anonymous)
+                                                    <div class="sm:col-span-1">
+                                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->user->email }}</dd>
+                                                    </div>
+                                                @endif
+
+                                                <div class="sm:col-span-1">
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Number</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->contact_number ?? 'Not provided' }}
+                                                    </dd>
                                                 </div>
 
                                                 <div class="sm:col-span-1">
-                                                    <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->contact_number ?? 'Not provided' }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Preference</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ ucfirst($donation->preferred_contact_method ?? 'Not specified') }}
+                                                    </dd>
                                                 </div>
 
                                                 <div class="sm:col-span-2">
-                                                    <dt class="text-sm font-medium text-gray-500">Pickup Address</dt>
-                                                    <dd class="mt-1 text-sm text-gray-900">{{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}</dd>
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Preferred Contact Times</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        @if($donation->preferred_contact_times && is_array($donation->preferred_contact_times))
+                                                            {{ implode(', ', array_map('ucfirst', $donation->preferred_contact_times)) }}
+                                                        @else
+                                                            Not specified
+                                                        @endif
+                                                    </dd>
                                                 </div>
+
+                                                <div class="sm:col-span-2">
+                                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Pickup Address</dt>
+                                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                                        {{ $donation->pickup_address ?? $donation->user->address ?? 'Not specified' }}
+                                                    </dd>
+                                                </div>
+
+                                                <div class="sm:col-span-2">
+
+                                                </div>
+
+                                                @if($donation->notes)
+                                                    <div class="sm:col-span-2">
+                                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Additional Notes</dt>
+                                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $donation->notes }}</dd>
+                                                    </div>
+                                                @endif
                                             </dl>
                                         </div>
+
+                                        <!-- Images -->
+                                        @if($donation->images && count($donation->images) > 0)
+                                            <div>
+                                                <h4 class="font-medium text-gray-900 mb-2">Images</h4>
+                                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                                    @foreach($donation->images as $image)
+                                                        <div class="relative group">
+                                                            <img src="{{ Storage::url($image) }}" 
+                                                                 alt="Donation image" 
+                                                                 class="w-full h-32 object-cover rounded-lg shadow-sm hover:opacity-75 transition-opacity cursor-pointer"
+                                                                 onclick="window.open('{{ Storage::url($image) }}', '_blank')"
+                                                            >
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                     
                                     <!-- Action Buttons -->

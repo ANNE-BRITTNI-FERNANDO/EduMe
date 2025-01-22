@@ -151,8 +151,10 @@ class BudgetManagementController extends Controller
             \Log::info('Request data:', $request->all());
 
             $request->validate([
-                'budget_amount' => 'required|numeric|min:0',
-                'cycle_type' => 'required|in:weekly,monthly',
+                'budget_amount' => 'required|numeric|min:100',
+                'cycle_type' => 'required|in:monthly,yearly',
+            ], [
+                'budget_amount.min' => 'The minimum budget amount must be at least LKR 100.'
             ]);
 
             \Log::info('Validation passed');
@@ -188,9 +190,9 @@ class BudgetManagementController extends Controller
                 ]);
 
                 // Calculate cycle end date based on cycle type
-                $cycleEndDate = $request->cycle_type === 'weekly' 
-                    ? $now->copy()->addWeek() 
-                    : $now->copy()->addMonth();
+                $cycleEndDate = $request->cycle_type === 'monthly' 
+                    ? $now->copy()->addMonth() 
+                    : $now->copy()->addYear();
 
                 // Create new budget tracking
                 $budgetTracking = BudgetTracking::create([
@@ -250,8 +252,10 @@ class BudgetManagementController extends Controller
             \Log::info('Request data:', $request->all());
 
             $request->validate([
-                'budget_amount' => 'required|numeric|min:0',
-                'cycle_type' => 'required|in:weekly,monthly',
+                'budget_amount' => 'required|numeric|min:100',
+                'cycle_type' => 'required|in:monthly,yearly',
+            ], [
+                'budget_amount.min' => 'The minimum budget amount must be at least LKR 100.'
             ]);
 
             \Log::info('Validation passed');
@@ -308,9 +312,9 @@ class BudgetManagementController extends Controller
                 } else {
                     // Calculate new cycle dates
                     $startDate = $now;
-                    $endDate = $request->cycle_type === 'weekly' 
-                        ? $now->copy()->addWeek() 
-                        : $now->copy()->addMonth();
+                    $endDate = $request->cycle_type === 'monthly' 
+                        ? $now->copy()->addMonth() 
+                        : $now->copy()->addYear();
 
                     // Create new tracking
                     $currentTracking = new BudgetTracking();

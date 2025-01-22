@@ -57,14 +57,14 @@
 
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
                     <div class="flex items-center">
-                        <div class="p-3 bg-red-100 rounded-full">
-                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <div class="p-3 bg-indigo-100 rounded-full">
+                            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a4 4 0 00-4-4H5.45a4 4 0 00-3.841 2.855l-1.333 4A4 4 0 004.13 14h1.062a4 4 0 003.841-2.855l1.333-4"/>
                             </svg>
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pending Donations</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ ($pendingMonetaryDonations ?? 0) + ($pendingItemDonations ?? 0) }}</p>
+                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $pendingDonations }}</p>
                         </div>
                     </div>
                 </div>
@@ -76,7 +76,7 @@
                    class="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 group">
                     <div class="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors duration-200">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
                     </div>
                     <span class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 transition-colors duration-200">

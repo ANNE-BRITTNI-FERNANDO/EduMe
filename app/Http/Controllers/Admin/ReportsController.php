@@ -11,8 +11,8 @@ use App\Models\Bundle;
 use App\Models\Visit;
 use App\Models\Cart;
 use App\Models\Message;
+use App\Models\SellerRating;
 use Carbon\Carbon;
-use App\Models\SellerRating as Rating;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -1007,7 +1007,7 @@ class ReportsController extends Controller
             ->get();
 
         // Get recent reviews
-        $recent_reviews = Rating::with(['user', 'seller'])
+        $recent_reviews = SellerRating::with(['user', 'seller'])
             ->whereHas('seller', function($query) {
                 $query->where('is_seller', true);
             })
@@ -1037,7 +1037,7 @@ class ReportsController extends Controller
         ];
 
         // Calculate average seller rating and total reviews
-        $ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+        $ratings = SellerRating::whereBetween('created_at', [$startDate, $endDate])
             ->whereHas('seller', function($query) {
                 $query->where('is_seller', true);
             })
@@ -1048,13 +1048,13 @@ class ReportsController extends Controller
         $total_seller_reviews = $ratings->total_reviews ?? 0;
 
         // Calculate rating distribution
-        $total_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+        $total_ratings = SellerRating::whereBetween('created_at', [$startDate, $endDate])
             ->whereHas('seller', function($query) {
                 $query->where('is_seller', true);
             })
             ->count();
 
-        $rating_distribution = Rating::whereBetween('created_at', [$startDate, $endDate])
+        $rating_distribution = SellerRating::whereBetween('created_at', [$startDate, $endDate])
             ->whereHas('seller', function($query) {
                 $query->where('is_seller', true);
             })
@@ -1103,8 +1103,7 @@ class ReportsController extends Controller
         $seller_metrics = [
             'response_rate' => $this->calculateResponseRate($startDate, $endDate),
             'fulfillment_rate' => $this->calculateFulfillmentRate($startDate, $endDate),
-            'satisfaction_rate' => $this->calculateSatisfactionRate($startDate, $endDate),
-            'ontime_delivery_rate' => $this->calculateOnTimeDeliveryRate($startDate, $endDate)
+            'satisfaction_rate' => $this->calculateSatisfactionRate($startDate, $endDate)
         ];
 
         // Get top sellers with formatted revenue
@@ -1162,26 +1161,12 @@ class ReportsController extends Controller
 
     private function calculateSatisfactionRate($startDate, $endDate)
     {
-        $total_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])->count();
-        $positive_ratings = Rating::whereBetween('created_at', [$startDate, $endDate])
+        $total_ratings = SellerRating::whereBetween('created_at', [$startDate, $endDate])->count();
+        $positive_ratings = SellerRating::whereBetween('created_at', [$startDate, $endDate])
             ->where('rating', '>=', 4)
             ->count();
 
         return $total_ratings > 0 ? ($positive_ratings / $total_ratings) * 100 : 0;
-    }
-
-    private function calculateOnTimeDeliveryRate($startDate, $endDate)
-    {
-        $total_deliveries = Order::whereBetween('created_at', [$startDate, $endDate])
-            ->whereNotNull('delivered_at')
-            ->count();
-        
-        $ontime_deliveries = Order::whereBetween('created_at', [$startDate, $endDate])
-            ->whereNotNull('delivered_at')
-            ->whereRaw('delivered_at <= DATE_ADD(created_at, INTERVAL 3 DAY)') // Assuming 3-day delivery window
-            ->count();
-
-        return $total_deliveries > 0 ? ($ontime_deliveries / $total_deliveries) * 100 : 0;
     }
 
     private function formatCurrency($amount)
@@ -1194,6 +1179,8 @@ class ReportsController extends Controller
         [$start_date, $end_date] = $this->getDateRange($request);
 
         switch ($type) {
+            case 'sellers':
+                return $this->downloadSellersReport($start_date, $end_date);
             case 'sales':
                 $data = [
                     'start_date' => $start_date,
@@ -1467,13 +1454,18 @@ class ReportsController extends Controller
                     ->count();
 
                 // Get seller ratings data
-                $average_rating = SellerRating::avg('rating') ?? 0;
+                $average_rating = SellerRating::whereHas('seller', function($query) {
+                    $query->where('is_seller', true);
+                })->avg('rating') ?? 0;
                 
                 // Get rating distribution
-                $rating_distribution = SellerRating::select('rating', DB::raw('COUNT(*) as count'))
-                    ->groupBy('rating')
-                    ->orderBy('rating')
-                    ->get();
+                $rating_distribution = SellerRating::whereHas('seller', function($query) {
+                    $query->where('is_seller', true);
+                })
+                ->select('rating', DB::raw('COUNT(*) as count'))
+                ->groupBy('rating')
+                ->orderBy('rating')
+                ->get();
 
                 // Get top sellers
                 $top_sellers = User::where('is_seller', true)
@@ -1497,11 +1489,8 @@ class ReportsController extends Controller
 
                 // Get daily new sellers trend
                 $daily_new_sellers = User::where('is_seller', true)
-                    ->select(
-                        DB::raw('DATE(created_at) as date'),
-                        DB::raw('COUNT(*) as count')
-                    )
                     ->whereBetween('created_at', [$start_date, $end_date])
+                    ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
                     ->groupBy('date')
                     ->orderBy('date')
                     ->get();
@@ -1664,7 +1653,145 @@ class ReportsController extends Controller
         }
     }
 
-    private function getDateRange(Request $request)
+    private function downloadSellersReport($startDate, $endDate)
+    {
+        // Get basic seller metrics
+        $total_sellers = User::where('is_seller', true)->count();
+        
+        $active_sellers = User::where('is_seller', true)
+            ->whereHas('products', function($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            })->count();
+
+        // Calculate average products per seller
+        $total_products = Product::where('is_approved', true)
+            ->where('is_rejected', false)
+            ->count();
+        $avg_products_per_seller = $total_sellers > 0 ? $total_products / $total_sellers : 0;
+
+        // Get new sellers in period
+        $new_sellers = User::where('is_seller', true)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
+
+        // Calculate seller growth
+        $previous_period_start = Carbon::parse($startDate)->subDays($endDate->diffInDays($startDate));
+        $previous_new_sellers = User::where('is_seller', true)
+            ->whereBetween('created_at', [$previous_period_start, $startDate])
+            ->count();
+        
+        $sellers_growth = $previous_new_sellers > 0 ? 
+            (($new_sellers - $previous_new_sellers) / $previous_new_sellers) * 100 : 0;
+
+        // Calculate performance metrics
+        $seller_metrics = [
+            'response_rate' => $this->calculateResponseRate($startDate, $endDate),
+            'fulfillment_rate' => $this->calculateFulfillmentRate($startDate, $endDate),
+            'satisfaction_rate' => $this->calculateSatisfactionRate($startDate, $endDate)
+        ];
+
+        // Get top performing sellers with detailed metrics
+        $top_sellers = User::where('is_seller', true)
+            ->withCount(['products as total_products' => function($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }])
+            ->withCount(['products as active_products' => function($query) use ($startDate, $endDate) {
+                $query->where('is_approved', true)
+                    ->where('is_rejected', false)
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            }])
+            ->withSum(['products as total_revenue' => function($query) use ($startDate, $endDate) {
+                $query->where('is_sold', true)
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            }], 'price')
+            ->withAvg(['ratings as avg_rating' => function($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }], 'rating')
+            ->orderByDesc('total_revenue')
+            ->take(10)
+            ->get()
+            ->map(function($seller) use ($startDate, $endDate) {
+                $seller->response_rate = $this->calculateSellerResponseRate($seller->id, $startDate, $endDate);
+                $seller->fulfillment_rate = $this->calculateSellerFulfillmentRate($seller->id, $startDate, $endDate);
+                return $seller;
+            });
+
+        // Get daily new sellers data
+        $daily_new_sellers = User::where('is_seller', true)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        // Generate PDF
+        $data = [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'total_sellers' => $total_sellers,
+            'active_sellers' => $active_sellers,
+            'new_sellers' => $new_sellers,
+            'sellers_growth' => $sellers_growth,
+            'avg_products_per_seller' => $avg_products_per_seller,
+            'seller_metrics' => $seller_metrics,
+            'top_sellers' => $top_sellers,
+            'daily_new_sellers' => $daily_new_sellers
+        ];
+
+        $pdf = PDF::loadView('admin.reports.pdf.sellers', $data);
+        return $pdf->download('sellers-report-' . $startDate->format('Y-m-d') . '-to-' . $endDate->format('Y-m-d') . '.pdf');
+    }
+
+    private function calculateSellerResponseRate($sellerId, $startDate, $endDate)
+    {
+        // Calculate response rate based on messages responded within 24 hours
+        $total_messages = Message::join('conversations', 'messages.conversation_id', '=', 'conversations.id')
+            ->where('conversations.seller_id', $sellerId)
+            ->where('conversations.seller_id', '!=', 'messages.sender_id')
+            ->whereBetween('messages.created_at', [$startDate, $endDate])
+            ->count();
+
+        $responded_messages = Message::join('conversations', 'messages.conversation_id', '=', 'conversations.id')
+            ->where('conversations.seller_id', $sellerId)
+            ->where('conversations.seller_id', '=', 'messages.sender_id')
+            ->whereRaw('TIMESTAMPDIFF(HOUR, messages.created_at, messages.read_at) <= 24')
+            ->whereBetween('messages.created_at', [$startDate, $endDate])
+            ->count();
+
+        return $total_messages > 0 ? ($responded_messages / $total_messages) * 100 : 0;
+    }
+
+    private function calculateSellerFulfillmentRate($sellerId, $startDate, $endDate)
+    {
+        $total_orders = OrderItem::where('seller_id', $sellerId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
+
+        $fulfilled_orders = OrderItem::where('seller_id', $sellerId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('order', function($query) {
+                $query->where('status', 'completed');
+            })
+            ->count();
+
+        return $total_orders > 0 ? ($fulfilled_orders / $total_orders) * 100 : 0;
+    }
+
+    private function calculateSellerSatisfactionRate($sellerId, $startDate, $endDate)
+    {
+        $total_ratings = SellerRating::where('seller_id', $sellerId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
+
+        $positive_ratings = SellerRating::where('seller_id', $sellerId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('rating', '>=', 4)
+            ->count();
+
+        return $total_ratings > 0 ? ($positive_ratings / $total_ratings) * 100 : 0;
+    }
+
+    public function getDateRange(Request $request)
     {
         $period = $request->get('period', 'today');
         $start_date = $request->get('start_date');

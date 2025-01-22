@@ -162,7 +162,14 @@
                                 @if($bundle->bundle_image)
                                     <img src="{{ asset('storage/' . $bundle->bundle_image) }}" 
                                          alt="{{ $bundle->bundle_name }}"
-                                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-300">
+                                         class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300">
+                                    @if(auth()->check() && $bundle->user_id === auth()->id())
+                                        <div class="absolute bottom-2 right-2 z-10">
+                                            <span class="bg-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-md">
+                                                Your Bundle
+                                            </span>
+                                        </div>
+                                    @endif
                                 @else
                                     <div class="flex items-center justify-center h-full">
                                         <svg class="h-24 w-24 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

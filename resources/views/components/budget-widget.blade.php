@@ -9,7 +9,9 @@
                 <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                     LKR {{ $budget ? number_format($budget->total_budget, 2) : '0.00' }}
                 </p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">{{ $budget ? ucfirst($budget->cycle_type) : 'Set your budget' }}</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    {{ $budget ? ($budget->cycle_type === 'monthly' ? 'Monthly Budget' : 'Yearly Budget') : 'Set your budget' }}
+                </p>
             </div>
 
             <!-- Remaining Amount -->
@@ -53,8 +55,8 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Budget Cycle</label>
                         <select name="cycle_type" required
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="weekly">Weekly</option>
                             <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
                         </select>
                     </div>
                     <div class="flex justify-end space-x-3">

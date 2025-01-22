@@ -53,6 +53,7 @@
     </div>
 
     <div class="metrics">
+        <h2 class="section-title">Overview</h2>
         <div class="metric">
             <strong>Total Sellers:</strong> {{ number_format($total_sellers) }}
         </div>
@@ -62,6 +63,23 @@
         </div>
         <div class="metric">
             <strong>Active Sellers:</strong> {{ number_format($active_sellers) }}
+            <span>({{ $total_sellers > 0 ? number_format(($active_sellers / $total_sellers) * 100, 1) : 0 }}% activity rate)</span>
+        </div>
+        <div class="metric">
+            <strong>Average Products per Seller:</strong> {{ number_format($avg_products_per_seller, 1) }}
+        </div>
+    </div>
+
+    <div class="metrics">
+        <h2 class="section-title">Performance Metrics</h2>
+        <div class="metric">
+            <strong>Response Rate:</strong> {{ number_format($seller_metrics['response_rate'], 1) }}%
+        </div>
+        <div class="metric">
+            <strong>Order Fulfillment Rate:</strong> {{ number_format($seller_metrics['fulfillment_rate'], 1) }}%
+        </div>
+        <div class="metric">
+            <strong>Customer Satisfaction:</strong> {{ number_format($seller_metrics['satisfaction_rate'], 1) }}%
         </div>
     </div>
 
@@ -70,18 +88,24 @@
         <thead>
             <tr>
                 <th>Seller</th>
-                <th>Products Sold</th>
-                <th>Bundles Sold</th>
-                <th>Total Revenue</th>
+                <th>Products</th>
+                <th>Active Products</th>
+                <th>Revenue</th>
+                <th>Avg Rating</th>
+                <th>Response Rate</th>
+                <th>Fulfillment Rate</th>
             </tr>
         </thead>
         <tbody>
             @foreach($top_sellers as $seller)
             <tr>
                 <td>{{ $seller->name }}</td>
-                <td>{{ number_format($seller->products_sold) }}</td>
-                <td>{{ number_format($seller->bundles_sold) }}</td>
-                <td>LKR {{ number_format($seller->product_revenue + $seller->bundle_revenue, 2) }}</td>
+                <td>{{ number_format($seller->total_products) }}</td>
+                <td>{{ number_format($seller->active_products) }}</td>
+                <td>LKR {{ number_format($seller->total_revenue ?? 0, 2) }}</td>
+                <td>{{ number_format($seller->avg_rating ?? 0, 1) }}</td>
+                <td>{{ number_format($seller->response_rate ?? 0, 1) }}%</td>
+                <td>{{ number_format($seller->fulfillment_rate ?? 0, 1) }}%</td>
             </tr>
             @endforeach
         </tbody>
@@ -109,19 +133,15 @@
     <table>
         <thead>
             <tr>
-                <th>Seller</th>
-                <th>Products</th>
-                <th>Bundles</th>
-                <th>Joined Date</th>
+                <th>Date</th>
+                <th>New Sellers</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($recent_sellers as $seller)
+            @foreach($daily_new_sellers as $day)
             <tr>
-                <td>{{ $seller->name }}</td>
-                <td>{{ number_format($seller->products_count) }}</td>
-                <td>{{ number_format($seller->bundles_count) }}</td>
-                <td>{{ $seller->created_at->format('M d, Y') }}</td>
+                <td>{{ \Carbon\Carbon::parse($day->date)->format('M d, Y') }}</td>
+                <td>{{ number_format($day->count) }}</td>
             </tr>
             @endforeach
         </tbody>

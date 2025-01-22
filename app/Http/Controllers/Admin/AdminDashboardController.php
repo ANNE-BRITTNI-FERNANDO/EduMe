@@ -30,6 +30,7 @@ class AdminDashboardController extends Controller
             $totalProducts = Product::count();
             $totalUsers = User::count();
             $pendingOrders = Order::where('status', 'pending')->count();
+            $pendingDonations = DonationItem::where('status', 'pending')->count();
             $recentOrders = Order::with(['user', 'items.item'])
                 ->latest()
                 ->take(5)
@@ -94,6 +95,7 @@ class AdminDashboardController extends Controller
                 'totalProducts',
                 'totalUsers',
                 'pendingOrders',
+                'pendingDonations',
                 'recentOrders',
                 'recentActivities',
                 'rejectedPayouts'
@@ -171,12 +173,16 @@ class AdminDashboardController extends Controller
     public function approved(Request $request)
     {
         $currentSort = $request->query('sort', 'latest');
-        $categories = [
-            'textbooks' => 'Textbooks',
-            'stationery' => 'Stationery',
-            'devices' => 'Electronic Devices',
-            'other' => 'Other'
-        ];
+        $categories = Product::CATEGORIES;
+        
+        // Get all sellers who have approved products
+        $sellers = User::where('is_seller', true)
+            ->whereHas('products', function($query) {
+                $query->where('status', 'approved');
+            })
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
         
         $query = Product::where('status', 'approved')
                        ->with('user');
@@ -184,6 +190,11 @@ class AdminDashboardController extends Controller
         // Apply category filter
         if ($request->has('category') && $request->category !== 'all') {
             $query->where('category', $request->category);
+        }
+        
+        // Apply seller filter
+        if ($request->has('seller') && $request->seller !== 'all') {
+            $query->where('user_id', $request->seller);
         }
         
         // Apply sorting
@@ -202,9 +213,9 @@ class AdminDashboardController extends Controller
                 break;
         }
         
-        $products = $query->paginate(10);
+        $products = $query->paginate(10)->withQueryString();
     
-        return view('admin.approved', compact('products', 'currentSort', 'categories'));
+        return view('admin.approved', compact('products', 'currentSort', 'categories', 'sellers'));
     }
 
     /**

@@ -32,7 +32,7 @@
                                    name="search" 
                                    value="{{ request('search') }}" 
                                    placeholder="Search products..." 
-                                   class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                   class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                    x-on:input.debounce.500ms="$el.form.submit()">
                             <svg class="absolute left-3 top-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -44,11 +44,11 @@
                     <div class="hidden lg:block w-48">
                         <select name="category" 
                                 form="quickFilterForm"
-                                class="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                class="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                 x-on:change="$el.form.submit()">
                             <option value="">All Categories</option>
                             @foreach($categories as $category)
-                                <option value="{{ $category }}" {{ request('category') == $category ? 'selected' : '' }}>
+                                <option value="{{ $category }}" {{ request('category') === $category ? 'selected' : '' }}>
                                     {{ $category }}
                                 </option>
                             @endforeach
@@ -93,13 +93,14 @@
                         <!-- Category (Mobile Only) -->
                         <div class="lg:hidden">
                             <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
-                            <select name="category" 
+                            <select name="mobile_category" 
                                     form="quickFilterForm"
-                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
-                                    x-on:change="$el.form.submit()">
+                                    x-ref="mobileCategory"
+                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
+                                    x-on:change="document.querySelector('.hidden.lg\\:block select[name=category]').value = $el.value; $el.form.submit()">
                                 <option value="">All Categories</option>
                                 @foreach($categories as $category)
-                                    <option value="{{ $category }}" {{ request('category') == $category ? 'selected' : '' }}>
+                                    <option value="{{ $category }}" {{ request('category') === $category ? 'selected' : '' }}>
                                         {{ $category }}
                                     </option>
                                 @endforeach
@@ -111,11 +112,11 @@
                             <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Location</label>
                             <select name="location" 
                                     form="quickFilterForm"
-                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                     x-on:change="$el.form.submit()">
                                 <option value="">All Locations</option>
                                 @foreach($locations as $location)
-                                    <option value="{{ $location }}" {{ request('location') == $location ? 'selected' : '' }}>
+                                    <option value="{{ $location }}" {{ request('location') === $location ? 'selected' : '' }}>
                                         {{ $location }}
                                     </option>
                                 @endforeach
@@ -132,7 +133,7 @@
                                            form="quickFilterForm"
                                            value="{{ request('min_price') }}" 
                                            placeholder="Min" 
-                                           class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                           class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                            x-on:input.debounce.500ms="$el.form.submit()">
                                 </div>
                                 <div>
@@ -141,7 +142,7 @@
                                            form="quickFilterForm"
                                            value="{{ request('max_price') }}" 
                                            placeholder="Max" 
-                                           class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                           class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                            x-on:input.debounce.500ms="$el.form.submit()">
                                 </div>
                             </div>
@@ -152,12 +153,12 @@
                             <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Sort By</label>
                             <select name="sort" 
                                     form="quickFilterForm"
-                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                                    class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white filter-input"
                                     x-on:change="$el.form.submit()">
-                                <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
-                                <option value="oldest" {{ request('sort') == 'oldest' ? 'selected' : '' }}>Oldest First</option>
-                                <option value="price_low" {{ request('sort') == 'price_low' ? 'selected' : '' }}>Price: Low to High</option>
-                                <option value="price_high" {{ request('sort') == 'price_high' ? 'selected' : '' }}>Price: High to Low</option>
+                                <option value="newest" {{ request('sort') === 'newest' ? 'selected' : '' }}>Newest First</option>
+                                <option value="oldest" {{ request('sort') === 'oldest' ? 'selected' : '' }}>Oldest First</option>
+                                <option value="price_low" {{ request('sort') === 'price_low' ? 'selected' : '' }}>Price: Low to High</option>
+                                <option value="price_high" {{ request('sort') === 'price_high' ? 'selected' : '' }}>Price: High to Low</option>
                             </select>
                         </div>
                     </div>
@@ -222,7 +223,7 @@
 
                     @if(request('sort'))
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                            Sort: {{ request('sort') == 'oldest' ? 'Oldest First' : (request('sort') == 'price_low' ? 'Price: Low to High' : (request('sort') == 'price_high' ? 'Price: High to Low' : 'Newest First')) }}
+                            Sort: {{ request('sort') === 'oldest' ? 'Oldest First' : (request('sort') === 'price_low' ? 'Price: Low to High' : (request('sort') === 'price_high' ? 'Price: High to Low' : 'Newest First')) }}
                             <a href="{{ url()->current() }}?{{ http_build_query(array_merge(request()->except('sort'), [])) }}" class="ml-2 text-yellow-600 dark:text-yellow-400 hover:text-yellow-800">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -255,11 +256,20 @@
                         <div class="group bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-1">
                             <div class="relative h-64 bg-blue-100 dark:bg-gray-700">
                                 @if($product->image_path)
-                                    <div class="relative">
-                                        <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->product_name }}" class="w-full h-48 object-cover">
+                                    <div class="relative h-full">
+                                        <img src="{{ asset('storage/' . $product->image_path) }}" 
+                                            alt="{{ $product->product_name }}" 
+                                            class="w-full h-full object-cover">
                                         @if($product->is_sold)
                                             <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                                                 <span class="text-white text-lg font-bold px-4 py-2 bg-red-500 rounded-lg">SOLD OUT</span>
+                                            </div>
+                                        @endif
+                                        @if(auth()->check() && $product->user_id === auth()->id())
+                                            <div class="absolute bottom-2 right-2 z-10">
+                                                <span class="bg-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-md">
+                                                    Your Product
+                                                </span>
                                             </div>
                                         @endif
                                     </div>
@@ -299,9 +309,7 @@
 
                 <!-- Pagination -->
                 <div class="mt-8">
-                    <div class="bg-white dark:bg-gray-800 px-4 py-3 rounded-xl shadow-lg border border-blue-100 dark:border-gray-700">
-                        {{ $approvedProducts->appends(request()->query())->links() }}
-                    </div>
+                    {{ $approvedProducts->appends(request()->query())->links() }}
                 </div>
             @endif
         </div>
@@ -323,7 +331,26 @@
 
         // Function to submit the form
         const submitForm = () => {
-            document.getElementById('filterForm').submit();
+            const form = document.getElementById('quickFilterForm');
+            
+            // Get all form inputs
+            const formData = new FormData(form);
+            
+            // Create URL parameters
+            const params = new URLSearchParams();
+            
+            // Add non-empty parameters only
+            for (const [key, value] of formData.entries()) {
+                // Skip mobile_category as we use the desktop category value
+                if (key === 'mobile_category') continue;
+                
+                if (value !== '') {
+                    params.append(key, value);
+                }
+            }
+            
+            // Update form action with clean URL
+            window.location.href = `${form.action}?${params.toString()}`;
         };
 
         // Debounced version of the submit function (waits 500ms after last input)
@@ -342,6 +369,15 @@
             } else {
                 // For text inputs (search), use debounced submit
                 input.addEventListener('input', debouncedSubmit);
+            }
+        });
+
+        // Initialize mobile category value on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const desktopCategory = document.querySelector('.hidden.lg\\:block select[name=category]');
+            const mobileCategory = document.querySelector('.lg\\:hidden select[name=mobile_category]');
+            if (desktopCategory && mobileCategory) {
+                mobileCategory.value = desktopCategory.value;
             }
         });
     </script>

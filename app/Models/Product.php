@@ -12,6 +12,14 @@ class Product extends Model
 {
     use HasFactory;
 
+    // Define product categories
+    public const CATEGORIES = [
+        'textbooks' => 'Textbooks',
+        'stationery' => 'Stationery',
+        'devices' => 'Electronic Devices',
+        'other' => 'Other'
+    ];
+
     // Fillable attributes to prevent mass-assignment vulnerabilities
     protected $fillable = [
         'product_name',
