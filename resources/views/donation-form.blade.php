@@ -5,10 +5,13 @@
         </h2>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-12" style="background: linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url('https://img.freepik.com/free-photo/stack-books-library-room_1150-5920.jpg?w=1380&t=st=1706047577~exp=1706048177~hmac=36f2f17b1e46c40d5f8c8c12893d2f3cdd12eef22b6e7e5c7c33c654d1defb7b') center/cover fixed no-repeat;">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg backdrop-blur-sm bg-opacity-90">
                 <div class="p-6">
+                    <h2 class="text-2xl font-bold mb-8 text-center text-gray-900 dark:text-gray-100">
+                        Donate Educational Items
+                    </h2>
                     <form action="{{ route('donations.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                         @csrf
 

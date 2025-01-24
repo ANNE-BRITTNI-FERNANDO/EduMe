@@ -350,4 +350,63 @@ describe('Product Management', () => {
       })
     })
   })
+
+  describe('Product Approval Process', () => {
+    it('should handle admin approval flow', () => {
+      // Create a test product first
+      cy.contains('a', 'Add New Product')
+        .should('have.class', 'bg-indigo-600')
+        .click()
+      
+      const timestamp = new Date().getTime()
+      const productName = `Test Product ${timestamp}`
+      
+      // Fill in product details
+      cy.get('#product_name').type(productName)
+      cy.get('#description').type('Test description for approval')
+      cy.get('#price').type('99.99')
+      cy.get('#category').find('option')
+        .then($options => {
+          const firstCategory = $options.filter((i, el) => el.value !== '').first()
+          cy.get('#category').select(firstCategory.val())
+        })
+      
+      // Upload product image
+      cy.get('#image').selectFile('cypress/fixtures/product-image.jpg')
+      
+      // Submit the product
+      cy.get('[data-test="product-form"]').submit()
+      
+      // Verify product is created and pending
+      cy.contains(productName).should('be.visible')
+      cy.contains('Pending').should('be.visible')
+
+      // Logout as seller
+      cy.get('button').contains('Test Seller').click()
+      cy.contains('Log Out').click()
+
+      // Login as admin
+      cy.visit('/login')
+      cy.get('#email').type('admin@gmail.com')
+      cy.get('#password').type('admin123')
+      cy.get('button[type="submit"]').click()
+
+      // Navigate to Admin Dashboard and Pending Products
+      cy.contains('Admin Dashboard').click()
+      cy.contains('Pending Products').click()
+
+      // Click the dropdown arrow for the product
+      cy.contains(productName)
+        .parents('.bg-white')
+        .find('svg')
+        .click()
+
+      // Click Approve button
+      cy.contains('button', 'Approve').click()
+
+      // Verify product is no longer in the pending list
+      cy.contains(productName).should('not.exist')
+
+    })
+  })
 })

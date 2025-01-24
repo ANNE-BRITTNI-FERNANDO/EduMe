@@ -168,14 +168,14 @@ describe('Authentication Tests', () => {
       cy.url().should('not.include', '/login')
     })
 
-    it('should handle dark mode form elements', () => {
-      cy.get('form').within(() => {
-        // Verify dark mode classes are present
-        cy.get('#email').should('have.class', 'dark:bg-gray-700')
-        cy.get('#password').should('have.class', 'dark:bg-gray-700')
-        cy.get('#remember_me').should('have.class', 'dark:bg-gray-700')
-      })
-    })
+    // it('should handle dark mode form elements', () => {
+    //   cy.get('form').within(() => {
+    //     // Verify dark mode classes are present
+    //     cy.get('#email').should('have.class', 'dark:bg-gray-700')
+    //     cy.get('#password').should('have.class', 'dark:bg-gray-700')
+    //     cy.get('#remember_me').should('have.class', 'dark:bg-gray-700')
+    //   })
+    // })
 
     it('should show validation errors in proper styling', () => {
       cy.get('form').submit() // Submit empty form

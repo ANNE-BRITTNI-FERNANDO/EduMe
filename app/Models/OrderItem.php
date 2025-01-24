@@ -37,9 +37,75 @@ class OrderItem extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
+    /**
+     * Get the owning item model (Product or Course).
+     */
     public function item(): MorphTo
     {
-        return $this->morphTo()->withTrashed();
+        return $this->morphTo('item', 'item_type', 'item_id')->withDefault([
+            'name' => 'Unknown Item',
+            'title' => 'Unknown Item'
+        ]);
+    }
+
+    /**
+     * Get the item name regardless of type
+     */
+    public function getItemNameAttribute()
+    {
+        if (!$this->item) {
+            return 'Unknown Item';
+        }
+
+        // Convert item_type to lowercase for comparison
+        $type = strtolower($this->item_type);
+
+        if ($type === 'product') {
+            return $this->item->product_name ?? 'Unknown Product';
+        }
+
+        if ($type === 'course') {
+            return $this->item->title ?? 'Unknown Course';
+        }
+
+        if ($type === 'bundle') {
+            return $this->item->name ?? 'Unknown Bundle';
+        }
+
+        return $this->item->product_name ?? $this->item->title ?? $this->item->name ?? 'Unknown Item';
+    }
+
+    /**
+     * Get the product if this is a product order item
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'item_id')
+            ->where('item_type', 'product');
+    }
+
+    /**
+     * Get the course if this is a course order item
+     */
+    public function course()
+    {
+        return $this->belongsTo(Course::class, 'item_id')
+            ->where('item_type', 'course');
+    }
+
+    /**
+     * Map the item type to the correct model class
+     */
+    public function getMorphClass()
+    {
+        $type = strtolower($this->item_type);
+        
+        $map = [
+            'product' => Product::class,
+            'course' => Course::class
+        ];
+
+        return $map[$type] ?? $this->item_type;
     }
 
     public function payoutRequests(): HasMany

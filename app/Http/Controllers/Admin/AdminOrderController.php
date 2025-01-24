@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
+use App\Notifications\OrderStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -84,21 +85,30 @@ class AdminOrderController extends Controller
         return view('admin.orders.show', compact('order'));
     }
 
+    /**
+     * Update the status of an order (Web version)
+     */
     public function updateStatus(Request $request, $id)
     {
+        $order = Order::findOrFail($id);
+        
         $request->validate([
-            'delivery_status' => 'required|in:pending,processing,completed,delivered,cancelled'
+            'status' => 'required|in:pending,processing,completed,cancelled,refunded'
         ]);
 
-        $order = Order::findOrFail($id);
-        $order->delivery_status = $request->delivery_status;
-        $order->save();
+        $order->update([
+            'status' => $request->status
+        ]);
+
+        // Notify the user about the status change
+        $message = "Your order status has been updated to " . ucfirst($request->status);
+        $order->user->notify(new OrderStatusUpdated($order, $message));
 
         return redirect()->back()->with('success', 'Order status updated successfully');
     }
 
     /**
-     * Update the status of an order
+     * Update the status of an order (API version)
      */
     public function updateStatusApi(Request $request, Order $order)
     {
@@ -111,7 +121,8 @@ class AdminOrderController extends Controller
         ]);
 
         // Notify the user about the status change
-        $order->user->notify(new OrderStatusUpdated($order));
+        $message = "Your order status has been updated to " . ucfirst($request->status);
+        $order->user->notify(new OrderStatusUpdated($order, $message));
 
         return response()->json([
             'message' => 'Order status updated successfully',

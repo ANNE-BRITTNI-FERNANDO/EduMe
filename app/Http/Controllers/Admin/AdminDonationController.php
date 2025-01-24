@@ -196,7 +196,10 @@ class AdminDonationController extends Controller
     public function removeDonation(DonationItem $donation)
     {
         if ($donation->status !== self::STATUS_APPROVED || $donation->available_quantity <= 0) {
-            return back()->with('error', 'This donation cannot be removed from the available list.');
+            return response()->json([
+                'success' => false,
+                'message' => 'This donation cannot be removed from the available list.'
+            ], 400);
         }
 
         try {
@@ -209,11 +212,17 @@ class AdminDonationController extends Controller
             ]);
 
             DB::commit();
-            return back()->with('success', 'Donation has been removed from the available list.');
+            return response()->json([
+                'success' => true,
+                'message' => 'Donation has been removed from the available list.'
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error removing donation: ' . $e->getMessage());
-            return back()->with('error', 'An error occurred while removing the donation.');
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while removing the donation.'
+            ], 500);
         }
     }
 

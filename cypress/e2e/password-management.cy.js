@@ -16,7 +16,7 @@ describe('Password Management', () => {
     cy.get('form[action*="register"]').submit()
 
     // Verify registration was successful and we're on dashboard
-    cy.url().should('include', '/dashboard')
+    cy.url().should('include', '/dashboard1')
 
     // Store email and password for later use
     cy.wrap(email).as('userEmail')
@@ -26,19 +26,19 @@ describe('Password Management', () => {
   describe('Password Reset Request', () => {
     beforeEach(() => {
       // First ensure we're logged in and on dashboard
-      cy.url().should('include', '/dashboard')
+      cy.url().should('include', '/dashboard1')
       
       // Wait for the navbar to be visible
       cy.get('nav').should('be.visible')
 
       // Click on the Settings Dropdown button (contains user name)
-      cy.get('.sm\\:flex.sm\\:items-center.sm\\:ms-6 button').click()
+      cy.contains('button', 'Test User').click()
       
       // Click logout from dropdown
       cy.contains('Log Out').click()
       
       // Verify we're not on dashboard
-      cy.url().should('not.include', '/dashboard')
+      cy.url().should('not.include', '/dashboard1')
       
       // Wait for the navbar and click login link
       cy.get('nav').should('be.visible')
@@ -88,13 +88,13 @@ describe('Password Management', () => {
   describe('Password Change', () => {
     beforeEach(() => {
       // First ensure we're logged in and on dashboard
-      cy.url().should('include', '/dashboard')
+      cy.url().should('include', '/dashboard1')
       
       // Wait for the navbar to be visible
       cy.get('nav').should('be.visible')
 
       // Click on the user name dropdown
-      cy.get('.sm\\:flex.sm\\:items-center.sm\\:ms-6 button').click()
+      cy.contains('button', 'Test User').click()
       
       // Click Profile from dropdown
       cy.get('a[href*="profile"]').contains('Profile').click()

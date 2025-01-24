@@ -90,9 +90,20 @@ class Product extends Model
         return $this->hasOne(ProductImage::class)->where('is_primary', true);
     }
 
-    public function orderItems(): MorphMany
+    /**
+     * Get all of the order items for the product.
+     */
+    public function orderItems()
     {
         return $this->morphMany(OrderItem::class, 'item');
+    }
+
+    /**
+     * Get the morph class name for this model.
+     */
+    public function getMorphClass()
+    {
+        return 'product';
     }
 
     // Scope for available products
@@ -101,11 +112,6 @@ class Product extends Model
         return $query->where('status', 'approved')
                     ->where('is_sold', false)
                     ->where('quantity', '>', 0);
-    }
-
-    public function getMorphClass()
-    {
-        return 'product';
     }
 
     protected static function boot()

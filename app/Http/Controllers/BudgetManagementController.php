@@ -86,7 +86,7 @@ class BudgetManagementController extends Controller
         // Get recommended products within budget
         $recommendedProducts = collect();
         if ($budgetTracking) {
-            $query = Product::where('is_approved', true)
+            $query = Product::where('status', 'approved')
                 ->where('price', '<=', $budgetTracking->remaining_amount)
                 ->where('user_id', '!=', $user->id)
                 ->where('is_sold', false)
@@ -121,7 +121,7 @@ class BudgetManagementController extends Controller
         }
 
         // Get unique categories from available products within budget
-        $categories = Product::where('is_approved', true)
+        $categories = Product::where('status', 'approved')
             ->where('is_sold', false)
             ->where('quantity', '>', 0)
             ->where('price', '<=', $budgetTracking ? $budgetTracking->remaining_amount : 0)

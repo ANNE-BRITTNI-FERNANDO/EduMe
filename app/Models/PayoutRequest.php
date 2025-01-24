@@ -64,6 +64,20 @@ class PayoutRequest extends Model
         return $this->belongsTo(OrderItem::class);
     }
 
+    /**
+     * Get all order items associated with this payout request
+     */
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class, 'seller_id', 'seller_id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where(function($query) {
+                $query->where('orders.delivery_status', '!=', 'cancelled')
+                    ->orWhereNull('orders.delivery_status');
+            })
+            ->select('order_items.*', 'orders.delivery_status');
+    }
+
     public function processor()
     {
         return $this->belongsTo(User::class, 'processed_by');

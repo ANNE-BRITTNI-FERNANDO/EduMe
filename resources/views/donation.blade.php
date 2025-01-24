@@ -63,10 +63,38 @@
                 </div>
             </div>
 
-            <!-- My Donation Requests -->
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+             <!-- My Donation Requests -->
+             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     <h3 class="text-lg font-semibold mb-4">My Donation Requests</h3>
+                    
+                    <!-- Instructions Section -->
+                    <div class="mb-6 bg-blue-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <h4 class="text-blue-800 dark:text-blue-300 font-semibold mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Understanding Your Donation Requests
+                        </h4>
+                        <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                            <p class="flex items-start">
+                                <span class="text-yellow-600 dark:text-yellow-400 font-medium mr-2">•</span>
+                                <span><strong>Pending Requests:</strong> These are your new requests waiting for donor approval. The donor will review your request and decide whether to approve or reject it.</span>
+                            </p>
+                            <p class="flex items-start">
+                                <span class="text-green-600 dark:text-green-400 font-medium mr-2">•</span>
+                                <span><strong>Approved Requests:</strong> These requests have been accepted by donors. You can now chat with the donor to arrange pickup/delivery details.</span>
+                            </p>
+                            <p class="flex items-start">
+                                <span class="text-red-600 dark:text-red-400 font-medium mr-2">•</span>
+                                <span><strong>Rejected Requests:</strong> These requests were not approved by the donors. You can view the rejection reason and try requesting other available items.</span>
+                            </p>
+                            <p class="flex items-start">
+                                <span class="text-blue-600 dark:text-blue-400 font-medium mr-2">•</span>
+                                <span><strong>Received Requests:</strong> If you're a donor, this tab shows requests from others for your donated items. You can approve or reject these requests.</span>
+                            </p>
+                        </div>
+                    </div>
                     
                     <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
                         <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" role="tablist">

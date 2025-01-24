@@ -101,9 +101,19 @@ Route::middleware(['auth'])->group(function () {
         })->name('dashboard');
 
         // Payout Routes
-        Route::get('/payouts', [AdminPayoutController::class, 'index'])->name('payouts.index');
-        Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
-        Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
+        Route::prefix('payouts')->name('payouts.')->group(function () {
+            Route::get('/', [AdminPayoutController::class, 'index'])->name('index');
+            Route::get('/history', [AdminPayoutController::class, 'history'])->name('history');
+            Route::get('/seller-balances', [AdminPayoutController::class, 'sellerBalances'])->name('seller-balances');
+            Route::get('/{payoutRequest}', [AdminPayoutController::class, 'show'])->name('show');
+            Route::post('/{payoutRequest}/approve', [AdminPayoutController::class, 'approve'])->name('approve');
+            Route::post('/{payoutRequest}/reject', [AdminPayoutController::class, 'reject'])->name('reject');
+            Route::post('/{payout}/complete', [AdminPayoutController::class, 'complete'])->name('complete');
+            Route::post('/{payout}/upload-receipt', [AdminPayoutController::class, 'uploadReceipt'])->name('upload-receipt');
+            Route::get('/{payout}/orders', [AdminPayoutController::class, 'getOrderDetails'])->name('orders');
+            Route::get('/{payout}/verify-delivery', [AdminPayoutController::class, 'verifyDelivery'])->name('verify-delivery');
+            Route::post('/{payout}/update-delivery-status', [AdminPayoutController::class, 'updateDeliveryStatus'])->name('update-delivery-status');
+        });
 
         // Admin Reports Routes
         Route::prefix('reports')->name('reports.')->group(function () {
@@ -131,9 +141,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/bundles/{id}/update-status', [AdminBundleController::class, 'updateStatus'])->name('bundles.updateStatus');
         
         // Orders
-        Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
-        Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
-        Route::post('/orders/{order}/status', [AdminOrderController::class, 'updateStatusApi'])->name('orders.update-status');
+        Route::prefix('orders')->name('orders.')->group(function () {
+            Route::get('/', [AdminOrderController::class, 'index'])->name('index');
+            Route::get('/{id}', [AdminOrderController::class, 'show'])->name('show');
+            Route::post('/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('update-status');
+        });
         
         // Payouts
         Route::prefix('payouts')->name('payouts.')->group(function () {
@@ -351,7 +363,7 @@ Route::get('/sell-bundle', [BundleController::class, 'create'])->name('sell-bund
 Route::middleware(['auth'])->group(function () {
     // Cart Routes
     // Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-    // Route::post('/cart/add/{product}', [CartController::class, 'add'])->name('cart.add');
+    // Route::post('/cart/add/{product}', [CartController::class, 'addProduct'])->name('cart.add');
     // Route::delete('/cart/remove/{cartItem}', [CartController::class, 'remove'])->name('cart.remove');
     // Route::patch('/cart/{cartItem}/delivery', [CartController::class, 'updateDelivery'])->name('cart.updateDelivery');
     

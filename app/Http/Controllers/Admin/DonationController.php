@@ -45,17 +45,28 @@ class DonationController extends Controller
     {
         try {
             \Log::info('Starting DonationController@requests');
-            \Log::info('Current route: ' . request()->route()->getName());
-            \Log::info('Current action: ' . request()->route()->getActionName());
-            \Log::info('Current parameters:', request()->route()->parameters());
             
-            // First get all requests to debug
-            $allRequests = DonationRequest::with(['user', 'donationItem', 'rejectedBy'])->get();
-            \Log::info('Total requests found: ' . $allRequests->count());
+            // Get requests filtered at database level
+            $pendingRequests = DonationRequest::with(['user', 'donationItem', 'rejectedBy'])
+                ->where('status', 'pending')
+                ->latest()
+                ->get();
 
-            $pendingRequests = $allRequests->where('status', 'pending');
-            $approvedRequests = $allRequests->where('status', 'approved');
-            $rejectedRequests = $allRequests->where('status', 'rejected');
+            $approvedRequests = DonationRequest::with(['user', 'donationItem', 'rejectedBy'])
+                ->where('status', 'approved')
+                ->latest()
+                ->get();
+
+            $rejectedRequests = DonationRequest::with(['user', 'donationItem', 'rejectedBy'])
+                ->where('status', 'rejected')
+                ->latest()
+                ->get();
+
+            \Log::info('Requests counts:', [
+                'pending' => $pendingRequests->count(),
+                'approved' => $approvedRequests->count(),
+                'rejected' => $rejectedRequests->count()
+            ]);
 
             return view('admin.donations.requests', compact('pendingRequests', 'approvedRequests', 'rejectedRequests'));
         } catch (\Exception $e) {

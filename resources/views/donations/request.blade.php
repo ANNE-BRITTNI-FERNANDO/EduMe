@@ -5,7 +5,7 @@
         </h2>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-12" style="background: linear-gradient(rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)), url('https://img.freepik.com/free-photo/book-stack-library-room-blurred-background_1150-5923.jpg?w=1380&t=st=1706047658~exp=1706048258~hmac=4f2ab2789ed0e355db47fc7e38c76cc8d1e5833c1e5d90b3388677e64dab5a87') center/cover fixed no-repeat;">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if (session('error'))
                 <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -14,9 +14,9 @@
             @endif
 
             <!-- Donation Details -->
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6 backdrop-blur-sm bg-opacity-85">
                 <div class="p-6">
-                    <h3 class="text-xl font-semibold mb-6 text-gray-900 dark:text-gray-100">Donation Details</h3>
+                    <h3 class="text-xl font-semibold mb-6 text-center text-gray-900 dark:text-gray-100">Donation Details</h3>
 
                     <!-- Images Gallery -->
                     @php
@@ -101,9 +101,9 @@
             </div>
 
             <!-- Request Form -->
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg backdrop-blur-sm bg-opacity-85">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">Request Form</h3>
+                    <h3 class="text-lg font-medium text-center text-gray-900 dark:text-gray-100 mb-6">Request Form</h3>
 
                     @if ($errors->any())
                         <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">

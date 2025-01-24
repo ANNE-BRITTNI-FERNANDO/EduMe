@@ -32,10 +32,33 @@ class PayoutController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'amount' => ['required', 'numeric', 'min:100'],
-            'bank_name' => ['required', 'string'],
-            'account_number' => ['required', 'string'],
-            'account_holder_name' => ['required', 'string'],
+            'amount' => [
+                'required',
+                'numeric',
+                'min:50',
+                'regex:/^\d*\.?\d{0,2}$/' // Allow only 2 decimal places
+            ],
+            'bank_name' => ['required', 'string', 'max:100'],
+            'account_number' => [
+                'required',
+                'string',
+                'min:8',
+                'max:20',
+                'regex:/^[0-9]+$/' // Only numbers allowed
+            ],
+            'account_holder_name' => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^[a-zA-Z\s]+$/' // Only letters and spaces allowed
+            ],
+        ], [
+            'amount.min' => 'Withdrawal amount must be at least 50.',
+            'amount.regex' => 'Amount can only have up to 2 decimal places.',
+            'account_number.regex' => 'Account number must contain only numbers.',
+            'account_number.min' => 'Account number must be at least 8 digits.',
+            'account_number.max' => 'Account number cannot exceed 20 digits.',
+            'account_holder_name.regex' => 'Account holder name can only contain letters and spaces.'
         ]);
     
         $sellerBalance = auth()->user()->sellerBalance;
