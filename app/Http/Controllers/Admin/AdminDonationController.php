@@ -135,17 +135,29 @@ class AdminDonationController extends Controller
         }
     }
     
-    public function rejectDonation(DonationItem $donation)
+    public function rejectDonation(DonationItem $donation, Request $request)
     {
         try {
-            \Log::info('Rejecting donation', ['donation_id' => $donation->id]);
+            \Log::info('Rejecting donation', [
+                'donation_id' => $donation->id,
+                'rejection_reason' => $request->rejection_reason
+            ]);
             
             $donation->status = self::STATUS_REJECTED;
-            $donation->reviewed_by = auth()->id();  
+            $donation->reviewed_by = auth()->id();
             $donation->verified_at = now();
+            $donation->rejection_reason = $request->rejection_reason;
             $donation->save();
     
-            \Log::info('Donation rejected successfully', ['donation_id' => $donation->id]);
+            \Log::info('Donation rejected successfully', [
+                'donation_id' => $donation->id,
+                'rejection_reason' => $donation->rejection_reason
+            ]);
+            
+            // Notify the donor
+            if ($donation->user) {
+                $donation->user->notify(new DonationRejectedNotification($donation));
+            }
             
             return response()->json([
                 'success' => true,

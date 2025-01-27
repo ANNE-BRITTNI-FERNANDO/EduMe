@@ -126,16 +126,42 @@
                                                 <span class="text-sm text-gray-900 dark:text-gray-100">{{ ucfirst($donation->category) }}</span>
                                             </div>
                                             <div>
+                                                <span class="text-sm font-medium text-gray-500">Quantity:</span>
+                                                <span class="text-sm text-gray-900 dark:text-gray-100">{{ $donation->quantity }}</span>
+                                            </div>
+                                            <!-- Status Badge -->
+                                            <div class="col-span-2 mt-2">
+                                                <span class="text-sm font-medium text-gray-500">Status:</span>
+                                                @if($donation->status === 'pending')
+                                                    <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                        Pending Review
+                                                    </span>
+                                                @elseif($donation->status === 'approved')
+                                                    <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        Approved
+                                                    </span>
+                                                @elseif($donation->status === 'rejected')
+                                                    <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                        Rejected
+                                                    </span>
+                                                    @if($donation->rejection_reason)
+                                                        <p class="mt-2 text-sm text-red-600 dark:text-red-400">
+                                                            <span class="font-semibold">Reason:</span> {{ $donation->rejection_reason }}
+                                                        </p>
+                                                    @endif
+                                                @else
+                                                    <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                        {{ ucfirst($donation->status) }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <div>
                                                 <span class="text-sm font-medium text-gray-500">Education Level:</span>
                                                 <span class="text-sm text-gray-900 dark:text-gray-100">{{ ucfirst($donation->education_level) }}</span>
                                             </div>
                                             <div>
                                                 <span class="text-sm font-medium text-gray-500">Condition:</span>
                                                 <span class="text-sm text-gray-900 dark:text-gray-100">{{ ucfirst(str_replace('_', ' ', $donation->condition)) }}</span>
-                                            </div>
-                                            <div>
-                                                <span class="text-sm font-medium text-gray-500">Quantity:</span>
-                                                <span class="text-sm text-gray-900 dark:text-gray-100">{{ $donation->quantity }}</span>
                                             </div>
                                             <div>
                                                 <span class="text-sm font-medium text-gray-500">Available:</span>

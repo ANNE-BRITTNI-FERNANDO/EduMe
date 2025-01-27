@@ -167,30 +167,24 @@
                                             </div>
 
                                             <!-- Image Carousel -->
-                                            <div class="relative mb-6 group">
-                                                <div class="overflow-hidden rounded-lg h-64 relative">
-                                                    @php
-                                                        $images = $request->donationItem->images ?? [];
-                                                    @endphp
-                                                    <div class="flex transition-transform duration-500 ease-in-out" id="imageSlider-{{ $request->id }}" style="width: {{ count($images) * 100 }}%">
-                                                        @foreach($images as $image)
-                                                            <div class="min-w-full h-64">
-                                                                <img src="{{ asset('storage/' . $image) }}" alt="Donation Item" class="w-full h-full object-contain">
+                                            <div class="relative mb-6">
+                                                @if($request->donationItem->images && count($request->donationItem->images) > 0)
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        @foreach($request->donationItem->images as $index => $image)
+                                                            <div class="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                                                                <img src="{{ Storage::url($image) }}" 
+                                                                     alt="Donation item image {{ $index + 1 }}"
+                                                                     class="object-cover w-full h-full transform hover:scale-105 transition-transform duration-300">
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                </div>
-                                                @if(count($images) > 1)
-                                                    <button onclick="moveSlide('{{ $request->id }}', -1)" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-r transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                                @else
+                                                    <div class="aspect-w-16 aspect-h-9 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                         </svg>
-                                                    </button>
-                                                    <button onclick="moveSlide('{{ $request->id }}', 1)" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-l transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                                        </svg>
-                                                    </button>
+                                                        <p class="text-gray-500 dark:text-gray-400 mt-2">No images available</p>
+                                                    </div>
                                                 @endif
                                             </div>
 
@@ -304,30 +298,24 @@
                                                 </span>
                                             </div>
 
-                                            <div class="relative mb-6 group">
-                                                <div class="overflow-hidden rounded-lg h-64 relative">
-                                                    @php
-                                                        $images = $request->donationItem->images ?? [];
-                                                    @endphp
-                                                    <div class="flex transition-transform duration-500 ease-in-out" id="imageSlider-{{ $request->id }}" style="width: {{ count($images) * 100 }}%">
-                                                        @foreach($images as $image)
-                                                            <div class="min-w-full h-64">
-                                                                <img src="{{ asset('storage/' . $image) }}" alt="Donation Item" class="w-full h-full object-contain">
+                                            <div class="relative mb-6">
+                                                @if($request->donationItem->images && count($request->donationItem->images) > 0)
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        @foreach($request->donationItem->images as $index => $image)
+                                                            <div class="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                                                                <img src="{{ Storage::url($image) }}" 
+                                                                     alt="Donation item image {{ $index + 1 }}"
+                                                                     class="object-cover w-full h-full transform hover:scale-105 transition-transform duration-300">
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                </div>
-                                                @if(count($images) > 1)
-                                                    <button onclick="moveSlide('{{ $request->id }}', -1)" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-r transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                                @else
+                                                    <div class="aspect-w-16 aspect-h-9 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                         </svg>
-                                                    </button>
-                                                    <button onclick="moveSlide('{{ $request->id }}', 1)" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-l transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                                        </svg>
-                                                    </button>
+                                                        <p class="text-gray-500 dark:text-gray-400 mt-2">No images available</p>
+                                                    </div>
                                                 @endif
                                             </div>
 
@@ -449,52 +437,26 @@
                                                 </span>
                                             </div>
 
-                                            @if($request->donationItem && $request->donationItem->images && count($request->donationItem->images) > 0)
-                                            <div class="relative mb-6 group">
-                                                <div class="overflow-hidden rounded-lg h-64 relative">
-                                                    @php
-                                                        $images = $request->donationItem->images ?? [];
-                                                    @endphp
-                                                    <div class="flex transition-transform duration-500 ease-in-out" id="imageSlider-{{ $request->id }}" style="width: {{ count($images) * 100 }}%">
-                                                        @foreach($images as $image)
-                                                        <div class="min-w-full h-64">
-                                                            <img src="{{ Storage::url($image) }}" 
-                                                                 alt="Item image" 
-                                                                 class="w-full h-full object-contain bg-gray-100 dark:bg-gray-700"
-                                                                 loading="lazy">
-                                                        </div>
+                                            <div class="relative mb-6">
+                                                @if($request->donationItem->images && count($request->donationItem->images) > 0)
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        @foreach($request->donationItem->images as $index => $image)
+                                                            <div class="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                                                                <img src="{{ Storage::url($image) }}" 
+                                                                     alt="Donation item image {{ $index + 1 }}"
+                                                                     class="object-cover w-full h-full transform hover:scale-105 transition-transform duration-300">
+                                                            </div>
                                                         @endforeach
                                                     </div>
-                                                    
-                                                    @if(count($images) > 1)
-                                                    <!-- Navigation Arrows -->
-                                                    <button class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-opacity-75"
-                                                            onclick="moveSlide('{{ $request->id }}', -1)">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                                @else
+                                                    <div class="aspect-w-16 aspect-h-9 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                         </svg>
-                                                    </button>
-                                                    <button class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-l opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-opacity-75"
-                                                            onclick="moveSlide('{{ $request->id }}', 1)">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                                        </svg>
-                                                    </button>
-
-                                                    <!-- Dots Indicator -->
-                                                    <div class="absolute bottom-4 left-0 right-0">
-                                                        <div class="flex items-center justify-center gap-2">
-                                                            @foreach($request->donationItem->images as $index => $image)
-                                                            <button class="w-2 h-2 rounded-full bg-black bg-opacity-50 hover:bg-opacity-75 transition-opacity duration-300 dot-indicator-{{ $request->id }} {{ $index === 0 ? 'bg-white' : '' }}"
-                                                                    data-index="{{ $index }}"
-                                                                    onclick="goToSlide('{{ $request->id }}', {{ $index }})"></button>
-                                                            @endforeach
-                                                        </div>
+                                                        <p class="text-gray-500 dark:text-gray-400 mt-2">No images available</p>
                                                     </div>
-                                                    @endif
-                                                </div>
+                                                @endif
                                             </div>
-                                            @endif
 
                                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
                                                 <div class="bg-white dark:bg-gray-600 rounded-lg p-4 shadow-md">
@@ -593,37 +555,28 @@
                                                 </span>
                                             </div>
 
-                                            <!-- Image Carousel -->
-                                            <div class="relative mb-6 group">
-                                                <div class="overflow-hidden rounded-lg h-64 relative">
-                                                    @php
-                                                        $images = $request->donationItem->images ?? [];
-                                                    @endphp
-                                                    <div class="flex transition-transform duration-500 ease-in-out" id="imageSlider-{{ $request->id }}" style="width: {{ count($images) * 100 }}%">
-                                                        @foreach($images as $image)
-                                                            <div class="min-w-full h-64">
-                                                                <img src="{{ asset('storage/' . $image) }}" alt="Donation Item" class="w-full h-full object-contain">
+                                            <div class="relative mb-6">
+                                                @if($request->donationItem->images && count($request->donationItem->images) > 0)
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        @foreach($request->donationItem->images as $index => $image)
+                                                            <div class="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                                                                <img src="{{ Storage::url($image) }}" 
+                                                                     alt="Donation item image {{ $index + 1 }}"
+                                                                     class="object-cover w-full h-full transform hover:scale-105 transition-transform duration-300">
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                </div>
-                                                @if(count($images) > 1)
-                                                    <button onclick="moveSlide('{{ $request->id }}', -1)" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-r transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                                @else
+                                                    <div class="aspect-w-16 aspect-h-9 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                         </svg>
-                                                    </button>
-                                                    <button onclick="moveSlide('{{ $request->id }}', 1)" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-l transition-all duration-200 opacity-0 group-hover:opacity-100">
-                                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                                        </svg>
-                                                    </button>
+                                                        <p class="text-gray-500 dark:text-gray-400 mt-2">No images available</p>
+                                                    </div>
                                                 @endif
                                             </div>
 
-                                            <!-- Content Grid -->
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <!-- Left Column: Requester Information -->
                                                 <div class="space-y-4">
                                                     <div class="bg-white dark:bg-gray-600 rounded-lg p-4 shadow-md">
                                                         <h6 class="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200 flex items-center">
