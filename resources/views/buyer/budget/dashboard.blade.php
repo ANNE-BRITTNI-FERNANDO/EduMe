@@ -194,61 +194,71 @@
                             @endif
 
                             <!-- Results or Empty State -->
-                            @if($recommendedProducts->isEmpty())
+                            @if($recommendedProducts->isEmpty() && $recommendedBundles->isEmpty())
                                 <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center">
                                     <div class="text-gray-500 dark:text-gray-400 space-y-3">
                                         @if(request('search') && request('category'))
-                                            <p class="text-lg">No products found matching "{{ request('search') }}" in the "{{ request('category') }}" category within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
-                                            <p>Try:</p>
-                                            <ul class="list-disc list-inside">
-                                                <li>Using different search terms</li>
-                                                <li>Selecting a different category</li>
-                                                <li><a href="{{ route('buyer.budget.index') }}" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Viewing all products</a></li>
-                                            </ul>
+                                            <p class="text-lg">No items found matching "{{ request('search') }}" in the "{{ request('category') }}" category within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
                                         @elseif(request('search'))
-                                            <p class="text-lg">No products found matching "{{ request('search') }}" within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
-                                            <p>Try:</p>
-                                            <ul class="list-disc list-inside">
-                                                <li>Checking your spelling</li>
-                                                <li>Using more general search terms</li>
-                                                <li><a href="{{ route('buyer.budget.index') }}" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Viewing all products</a></li>
-                                            </ul>
+                                            <p class="text-lg">No items found matching "{{ request('search') }}" within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
                                         @elseif(request('category'))
-                                            <p class="text-lg">No products found in the "{{ request('category') }}" category within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
-                                            <p>Try:</p>
-                                            <ul class="list-disc list-inside">
-                                                <li>Selecting a different category</li>
-                                                <li><a href="{{ route('buyer.budget.index') }}" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Viewing all products</a></li>
-                                            </ul>
+                                            <p class="text-lg">No items found in the "{{ request('category') }}" category within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
                                         @else
-                                            <p class="text-lg">No products found within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
-                                            <p class="mt-2">Check back later for new products within your budget range.</p>
+                                            <p class="text-lg">No items found within your budget of LKR {{ number_format($budgetTracking->remaining_amount, 2) }}.</p>
                                         @endif
+                                        <p>Try adjusting your filters or check back later for new items.</p>
                                     </div>
                                 </div>
                             @else
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    @foreach($recommendedProducts as $product)
-                                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                            @if($product->image_path)
-                                                <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->product_name }}" 
-                                                    class="w-full h-48 object-cover rounded-lg mb-4">
-                                            @endif
-                                            <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ $product->product_name }}</h4>
-                                            <p class="text-gray-600 dark:text-gray-400 mb-2">{{ Str::limit($product->description, 100) }}</p>
-                                            <p class="text-lg font-bold text-gray-900 dark:text-gray-100">LKR {{ number_format($product->price, 2) }}</p>
-                                            <a href="{{ route('product.show', $product) }}" 
-                                                class="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                                                View Details
-                                            </a>
-                                        </div>
-                                    @endforeach
-                                </div>
+                                <!-- Products Section -->
+                                @if($recommendedProducts->isNotEmpty())
+                                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recommended Products</h4>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                                        @foreach($recommendedProducts as $product)
+                                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                                @if($product->image_path)
+                                                    <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->product_name }}" class="w-full h-48 object-cover rounded-lg mb-4">
+                                                @endif
+                                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $product->product_name }}</h3>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ Str::limit($product->description, 100) }}</p>
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">LKR {{ number_format($product->price, 2) }}</span>
+                                                    <a href="{{ route('product.show', $product) }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:border-indigo-900 focus:ring ring-indigo-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <div class="mt-6 mb-8">
+                                        {{ $recommendedProducts->links() }}
+                                    </div>
+                                @endif
 
-                                <!-- Pagination -->
-                                <div class="mt-6">
-                                    {{ $recommendedProducts->links() }}
-                                </div>
+                                <!-- Bundles Section -->
+                                @if($recommendedBundles->isNotEmpty())
+                                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Recommended Bundles</h4>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        @foreach($recommendedBundles as $bundle)
+                                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                                @if($bundle->bundle_image)
+                                                    <img src="{{ asset('storage/' . $bundle->bundle_image) }}" alt="{{ $bundle->bundle_name }}" class="w-full h-48 object-cover rounded-lg mb-4">
+                                                @endif
+                                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $bundle->bundle_name }}</h3>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ Str::limit($bundle->description, 100) }}</p>
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">LKR {{ number_format($bundle->price, 2) }}</span>
+                                                    <a href="{{ route('bundles.show', $bundle) }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:border-indigo-900 focus:ring ring-indigo-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                                        View Bundle
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <div class="mt-6">
+                                        {{ $recommendedBundles->links() }}
+                                    </div>
+                                @endif
                             @endif
                         </div>
                     </div>

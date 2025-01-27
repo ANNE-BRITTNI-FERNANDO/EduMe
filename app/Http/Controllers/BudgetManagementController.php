@@ -6,7 +6,8 @@ use App\Models\BudgetTracking;
 use App\Models\UserBudget;
 use App\Models\BudgetHistory;
 use App\Models\Product;
-use App\Models\Order; // Added Order model
+use App\Models\Order;
+use App\Models\Bundle; // Added Bundle model
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,8 +86,17 @@ class BudgetManagementController extends Controller
 
         // Get recommended products within budget
         $recommendedProducts = collect();
+        $recommendedBundles = collect();
         if ($budgetTracking) {
-            $query = Product::where('status', 'approved')
+            // Query for products
+            $productQuery = Product::where('status', 'approved')
+                ->where('price', '<=', $budgetTracking->remaining_amount)
+                ->where('user_id', '!=', $user->id)
+                ->where('is_sold', false)
+                ->where('quantity', '>', 0);
+
+            // Query for bundles
+            $bundleQuery = Bundle::where('status', 'approved')
                 ->where('price', '<=', $budgetTracking->remaining_amount)
                 ->where('user_id', '!=', $user->id)
                 ->where('is_sold', false)
@@ -94,30 +104,28 @@ class BudgetManagementController extends Controller
 
             // Apply category filter if selected
             if (request()->filled('category')) {
-                $query->where('category', request('category'));
+                $productQuery->where('category', request('category'));
+                $bundleQuery->whereHas('categories', function($q) {
+                    $q->where('category', request('category'));
+                });
             }
 
             // Apply search filter if provided
             if (request()->filled('search')) {
                 $searchTerm = request('search');
-                $query->where(function($q) use ($searchTerm) {
+                $productQuery->where(function($q) use ($searchTerm) {
                     $q->where('product_name', 'like', '%' . $searchTerm . '%')
+                      ->orWhere('description', 'like', '%' . $searchTerm . '%');
+                });
+                $bundleQuery->where(function($q) use ($searchTerm) {
+                    $q->where('bundle_name', 'like', '%' . $searchTerm . '%')
                       ->orWhere('description', 'like', '%' . $searchTerm . '%');
                 });
             }
 
-            // Get paginated results
-            $recommendedProducts = $query->latest()
-                ->paginate(9)
-                ->withQueryString();
-                
-            \Log::info('Recommended products found:', [
-                'count' => $recommendedProducts->count(),
-                'max_price' => $budgetTracking->remaining_amount,
-                'category_filter' => request('category'),
-                'search_term' => request('search'),
-                'total_pages' => $recommendedProducts->lastPage()
-            ]);
+            // Get paginated results for both products and bundles
+            $recommendedProducts = $productQuery->latest()->paginate(6)->withQueryString();
+            $recommendedBundles = $bundleQuery->latest()->paginate(3)->withQueryString();
         }
 
         // Get unique categories from available products within budget
@@ -135,6 +143,7 @@ class BudgetManagementController extends Controller
             'budgetTracking',
             'budgetHistory',
             'recommendedProducts',
+            'recommendedBundles',
             'categories'
         ));
     }

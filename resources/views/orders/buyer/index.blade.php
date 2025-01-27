@@ -99,6 +99,16 @@
                             {{ $orders->links() }}
                         </div>
                     @endif
+                    <div class="mt-8 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-blue-900 dark:text-blue-100">Need Help With Your Order?</h3>
+                        <p class="mt-2 text-blue-700 dark:text-blue-200">If you haven't received your order within 7 days of placing it, please contact our support team:</p>
+                        <div class="mt-4 space-y-2 text-blue-700 dark:text-blue-200">
+                            <p><strong>Phone:</strong> +94 112 345 678 (Mon-Fri, 9 AM - 5 PM)</p>
+                            <p><strong>Email:</strong> <a href="mailto:support@edume.lk" class="underline">support@edume.lk</a></p>
+                            <p><strong>WhatsApp:</strong> +94 77 234 5678</p>
+                        </div>
+                        <p class="mt-4 text-sm text-blue-600 dark:text-blue-300">Please have your order number ready when contacting us.</p>
+                    </div>
                 </div>
             </div>
         </div>
